@@ -1,0 +1,46 @@
+#!/bin/bash
+#PBS -l nodes=2:ppn=24
+#PBS -l walltime=01:00:00
+#PBS -N Multiple_backgrounds
+#PBS -q debug
+#PBS -V
+
+#Call "date" at beginning and end just to get timestamps
+date
+
+# Load the "Coincidence Parameters" we want to use
+export INI_WINDOW=50
+export TEL_WINDOW=1000
+export PROMPT_WIN=1000 # Does nothing right now.
+export PE_THRESH=8
+export COINC_ALG=10 # Might want to set up this as paired?
+
+# Set the folders we want to access
+ANALYZER=/N/u/frangonz/Carbonate/Processed_Root_Analysis/rootAnalyzer # Location of analyzer
+RUNLISTS=/N/u/frangonz/Carbonate/runLists # Directory for runlists
+OUTPUT_DIR=/N/slate/frangonz/ParsedData/hiT-Full # Where we're saving to
+RUN_LIST_BKG=${RUNLISTS}/backgrounds
+
+# First, generate the runlist for each core if we haven't yet.
+# Change 48 to something else if you want more cores.
+cd ${RUN_LIST_BKG}
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_BKG}/beamOff.txt 48
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_BKG}/beamOn.txt  48
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_BKG}/type1.txt   48
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_BKG}/type2.txt   48
+
+# Now we go to the data_folder we want 
+cd ${OUTPUT_DIR}
+
+# Make sure all these parallel jobs have the same coincidence parameters
+# This uses gnuparallel, and will generate .csv files in our OUT_FOLDER.
+# If we did this right, the windows should be declared above
+# Functionality 3 is for backgrounds, the 1,2,3,4 are for types of background.
+seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/beamOff.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 3 1 {}
+seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/beamOn.txt_  ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 3 4 {}
+seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/type1.txt_   ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 3 2 {}
+seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/type2.txt_   ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 3 3 {}
+
+# This was a test of a different type of functionality.
+#seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/beamOff.txt_ 50 500 8 9 3 6 {}
+date

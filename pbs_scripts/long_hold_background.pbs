@@ -1,0 +1,54 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=01:00:00
+#PBS -N PMTSummer
+#PBS -q debug
+#PBS -V
+
+#Call "date" at beginning and end just to get timestamps
+date
+
+# Load the "Coincidence Parameters" we want to use
+#INI_WINDOW=50
+#TEL_WINDOW=1000
+#PROMPT_WIN=1000 # Does nothing right now.
+#PE_THRESH=8
+#COINC_ALG=10 # Might want to set up this as paired?
+
+# Folders
+#ANALYZER=/N/u/frangonz/Carbonate/Processed_Root_Analysis/rootAnalyzer
+#RUNLISTS=/N/u/frangonz/Carbonate/runLists # Directory for runlists
+IN_FOLDER=${RUNLISTS}/GoodRuns
+#OUTPUT_DIR=/N/slate/frangonz/ParsedData/hiT-Full # Where we're saving to
+OUT_FOLDER=${OUTPUT_DIR}/longHoldBkg
+mkdir ${OUT_FOLDER}
+# This is hardcoded for our gaps
+RUN_LIST_TMP=${IN_FOLDER}/4231/
+cd ${RUN_LIST_TMP} # Generate the split runlists
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_TMP}/RunList.txt 24
+SAVE_LOC=${OUT_FOLDER}/4231/ # This is called in the code!
+mkdir ${SAVE_LOC}
+seq 0 23 | parallel ${ANALYZER} ${RUN_LIST_TMP}/RunList.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 2 7 {}
+
+RUN_LIST_TMP=${IN_FOLDER}/7332/
+cd ${RUN_LIST_TMP} # Generate the split runlists
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_TMP}/RunList.txt 24
+SAVE_LOC=${OUT_FOLDER}/7332/ # This is called in the code!
+mkdir ${SAVE_LOC}
+seq 0 23 | parallel ${ANALYZER} ${RUN_LIST_TMP}/RunList.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 2 7 {}
+
+RUN_LIST_TMP=${IN_FOLDER}/9600/
+cd ${RUN_LIST_TMP} # Generate the split runlists
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_TMP}/RunList.txt 24
+SAVE_LOC=${OUT_FOLDER}/9600/ # This is called in the code!
+mkdir ${SAVE_LOC}
+seq 0 23 | parallel ${ANALYZER} ${RUN_LIST_TMP}/RunList.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 2 7 {}
+
+RUN_LIST_TMP=${IN_FOLDER}/13219/
+cd ${RUN_LIST_TMP} # Generate the split runlists
+python ${RUNLISTS}/split_runlist.py ${RUN_LIST_TMP}/RunList.txt 24
+SAVE_LOC=${OUT_FOLDER}/13219/ # This is called in the code!
+mkdir ${SAVE_LOC}
+seq 0 23 | parallel ${ANALYZER} ${RUN_LIST_TMP}/RunList.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 2 7 {}
+
+date

@@ -1,0 +1,42 @@
+#!/bin/bash
+#PBS -l nodes=2:ppn=24
+#PBS -l walltime=01:00:00
+#PBS -N AnalyzerForTau_debug
+#PBS -q debug
+#PBS -V
+
+#Call "date" at beginning and end just to get timestamps
+date
+
+# Load the "Coincidence Parameters" we want to use
+INI_WINDOW=50
+TEL_WINDOW=1000
+PROMPT_WIN=1000 # Does nothing right now.
+PE_THRESH=8
+COINC_ALG=9 # Might want to set up this as paired?
+
+# Set the folders we want to access
+ANALYZER=/N/u/frangonz/Carbonate/Processed_Root_Analysis/rootAnalyzer
+RUNLISTS=/N/u/frangonz/Carbonate/runLists # Directory for runlists
+OUTPUT_DIR=/N/slate/frangonz/ParsedData/lowT-Full
+RUN_LIST_PROD=${RUNLISTS}/Production # Directory for runlists
+
+# First, generate the runlist for each core if we haven't yet.
+# Change 48 to something else if you want more cores.
+cd ${RUN_LIST_PROD}
+python ${RUNLISTS}/../split_runlist.py ${RUN_LIST_PROD}/RunListSplit.txt 48
+
+# Now we go to the data_folder we want 
+cd ${OUTPUT_DIR}
+
+#GNU parallel expects a list of items to loop over in a parallel way.
+#Here "seq" just provides a list of integers 0 to 47. We then run the analyzer
+#code. The "{}" is a special instruction to GNU parallel to tell it to 
+#supply the given integer.
+# Here the function 1-1 indicates to just extract alldata.
+seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_PROD}/RunListSplit.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 1 8 {}
+#seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_PROD}/RunListSplit.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 1 1 {}
+
+# Here I was looking at backgrounds as normal runs
+#seq 0 47 | parallel ${ANALYZER} ${RUN_LIST_BKG}/beamOff.txt_ ${INI_WINDOW} ${TEL_WINDOW} ${PE_THRESH} ${COINC_ALG} 1 1 {}
+date
