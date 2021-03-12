@@ -145,7 +145,7 @@ std::vector<coinc_t> Run::getCoincCounts(const std::function <coinc_t (coinc_t)>
 		} else if ((coincMode == 5) || (coincMode == 6)) { // Telescoping, don't care which PMT.
 			this->findCoincidenceNoPMT();
 		} else if ((coincMode == 7) || (coincMode == 8)) { // Telescoping, but with additional singles deadtime
-			this->findCoincidenceMoving();
+			this->findCoincidenceFixedTele();
 		} else if ((coincMode == 9) || (coincMode == 10)) { // Telescoping, filter out high-PE coincidences
 			this->findCoincidenceFixedTele();
 		} else {

@@ -5,7 +5,7 @@
 
 /* define constants we need for later */
 #define NANOSECOND .000000001
-#define WINDOW 40000
+//#define WINDOW 40000
 #define bkgMov50ns8pe 0.10666
 #define bkgMov50ns1000ns6pe 0.3
 #define synthbkg_50_500_2 0.0
@@ -501,7 +501,8 @@ std::vector<coinc_t> getSelfCoincs(std::vector<input_t> &data, double iniWin, do
 				prevEvt = data.at(tailIt);
 			}
 			// Check if we've gone above threshold
-			if (peSum >= numPH) {
+			if (promptSum >= numPH) {
+			//if (peSum >= numPH) {
 				evt.realtime = data.at(ii).realtime;
 				evt.time = data.at(ii).time;
 				evt.pmt1 = peSum;
@@ -559,6 +560,18 @@ std::vector<coinc_t> removeElectricNoise_coinc(std::vector<coinc_t> &coinc,doubl
 	return filter;
 }
 
+std::vector<coinc_t> getElectricNoise_coinc(std::vector<coinc_t> &coinc, double deadt, int PE, double tail) {
+	
+	std::vector<coinc_t> filter;
+	if (coinc.size() == 0) {return filter;}
+	for (auto cIt = coinc.begin(); cIt < coinc.end(); cIt++) {
+		if ((cIt->length - tail) <= (((double)(cIt->pmt1+cIt->pmt2) - PE))*deadt) {
+			filter.push_back(*cIt);
+		}
+	}
+	return filter;
+}
+	
 /* Removing photons that are associated with "electric noise" events */
 std::vector<input_t> removeElectricNoise_sing(std::vector<input_t> &cts, std::vector<coinc_t> &coinc, double deadt, int PE) {
 	

@@ -464,9 +464,9 @@ void beamOnBkg(Run* mcs1, Run* mcs2, EMS* ems0) {
 		double temp1 = ems0->getEMSAvg(3311,0,startTime,endTime);
 		double temp2 = ems0->getEMSAvg(3311,1,startTime,endTime);
 			
-		printf("\n BACKGROUNDS --- Run: %d\nheight: %d\nstartTime: %f\nendTime: %f\npmt1cts: %lu\npmt2Cts: %lu\ncoincCts: %lu\nPMT Temps: %f, %f\n",
+		printf("\n BACKGROUNDS --- Run: %d\nheight: %d\nstartTime: %f\nendTime: %f\npmt1cts: %f\npmt2Cts: %f\ncoincCts: %f\nPMT Temps: %f, %f\n",
 			runNo, heights[i], startTime, endTime, pmt1Size, pmt2Size, pmtCSize, temp1, temp2);
-		fprintf(outfile,"%d,%d,%f,%f,%lu,%lu,%lu,%f,%f\n",
+		fprintf(outfile,"%d,%d,%f,%f,%f,%f,%f,%f,%f\n",
 			runNo, heights[i], startTime, endTime, pmt1Size, pmt2Size, pmtCSize, temp1, temp2);
 		printf("RDE: \npmt1DT: %f\npmt1PU: %f\npmt2DT: %f\npmt2PU: %f\npmtCDT: %f\npmtCPU: %f\n",
 				runNo, heights[i],pmt1DT,pmt1PU,pmt2DT,pmt2PU,pmtCDT,pmtCPU);
@@ -615,9 +615,9 @@ void beamOnBkg(Run* mcs1, Run* mcs2, EMS* ems0) {
 	double temp2 = ems0->getEMSAvg(3311,1,bkgStart,bkgEnd);
 	
 	// Output -- hardcoded in final height 10	
-	printf("\n BACKGROUNDS --- Run: %d\nheight: %d\nstartTime: %f\nendTime: %f\npmt1cts: %lu\npmt2Cts: %lu\ncoincCts: %lu\nPMT Temps: %f, %f\n",
+	printf("\n BACKGROUNDS --- Run: %d\nheight: %d\nstartTime: %f\nendTime: %f\npmt1cts: %f\npmt2Cts: %f\ncoincCts: %f\nPMT Temps: %f, %f\n",
 		runNo, 10, bkgStart, bkgEnd, pmt1Size, pmt2Size, pmtCSize, temp1, temp2);
-	fprintf(outfile,"%d,%d,%f,%f,%lu,%lu,%lu,%f,%f\n",
+	fprintf(outfile,"%d,%d,%f,%f,%f,%f,%f,%f,%f\n",
 		runNo, 10, bkgStart, bkgEnd, pmt1Size, pmt2Size, pmtCSize, temp1, temp2);
 	printf("RDE: \npmt1DT: %f\npmt1PU: %f\npmt2DT: %f\npmt2PU: %f\npmtCDT: %f\npmtCPU: %f\n",
 			runNo, 10, pmt1DT,pmt1PU,pmt2DT,pmt2PU,pmtCDT,pmtCPU);

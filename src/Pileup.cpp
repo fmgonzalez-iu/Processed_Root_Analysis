@@ -160,6 +160,17 @@ void Pileup::LoadSingStatsVec(std::vector<input_t> pmt1_vec, std::vector<input_t
 	
 	this->ph_f = pmt1 + pmt2;
 }
+void Pileup::LoadSingStatsVec(std::vector<input_t> pmt_vec) {
+	double pmt = (double)pmt_vec.size() + getDeadTimeSing(pmt_vec, this->start, this->end);
+	
+	this->ph_f = pmt;
+}
+void Pileup::LoadSingStatsVec(std::vector<coinc_t> pmt_vec) {
+	double pmt = (double)pmt_vec.size() + getDeadTimeCoinc(pmt_vec, this->start,this->end);
+	
+	this->ph_f = pmt;
+}
+
 
 void Pileup::CalculateTau() {
 	this->tau = 0.;

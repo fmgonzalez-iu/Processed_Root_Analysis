@@ -17,7 +17,8 @@
 
 /* define constants we need for later */
 #define NANOSECOND .000000001
-#define WINDOW 40000
+#define WINDOW 50000
+//#define WINDOW 16
 #define bkgMov50ns8pe 0.10666
 #define bkgMov50ns1000ns6pe 0.3
 #define synthbkg_50_500_2 0.0
@@ -60,20 +61,23 @@ void singlePMTHits(Run* run1, Run* run2, TH1D* dT1, TH1D* dT2);
 void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int background);
 void singlePMTHitsMoving(Run* run1, Run* run2, TH1D* dT1, TH1D* dT2);
 void writePMTBalance(Run* mcs1, Run* mcs2);
+void numPhotonsByTime(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* pmtCSum, double holdT);
+
 
 /*--------------------- in Functions-sumHists.cpp --------------------*/
 void acSummer(Run* mcs1, Run* mcs2, TH1D* histSum);
 void acSummerCoinc(Run* mcs1, Run* mcs2, TH1D* histSum, double holdT);
-void peak1SummerS(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum);
-void peak1SummerL(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum);
+void peak1SummerS(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum,bool svl);
+//void peak1SummerS(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum);
+//void peak1SummerL(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum);
 void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum, double holdT);
 void writeFastEvts(Run* mcs1, Run* mcs2, TH1D* profile);
 void writeFastBkgs(Run* mcs1, Run* mcs2, TH1D* profile);
 //void acSummerAntiCoinc(Run* mcs1, Run* mcs2, TH1D* histSum, double holdT);
-void bkgSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum,TH1D* pmt2Sum);
+void bkgSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum,TH1D* pmt2Sum,TH1D* cSum);
 void dipSummerL(Run* mcs1, Run* mcs2, TH1D* histSum);
 void dipSummerS(Run* mcs1, Run* mcs2, TH1D* histSum, double holdT);
-void monSummer(Run* mcs1, Run* mcs2, double fillEnd, int mon, TH1D* histSum);
+void monSummer(Run* mcs1, Run* mcs2, double fillEnd, int mon, TH1D* histSum,bool force);
 /*void fillSummer(Run* mcs1, Run* mcs2, std::vector<double> spHits);
 void fillSummerBa(Run* mcs1, double fillEnd, TH1D* histSum);
 void fillSummerD1(Run* mcs1, double fillEnd, TH1D* histSum);
@@ -96,6 +100,7 @@ std::vector<input_t> imposeDeadtime(std::vector<input_t> &cts, double deadtime);
 std::vector<double> hMinGxHits(Run* mcs1, Run* mcs2, double fillEnd);
 std::vector<input_t> removeElectricNoise_sing(std::vector<input_t> &cts, std::vector<coinc_t> &coinc, double deadt, int PE);
 std::vector<coinc_t> removeElectricNoise_coinc(std::vector<coinc_t> &coinc, double deadt, int PE);
+std::vector<coinc_t> getElectricNoise_coinc(std::vector<coinc_t> &coinc, double deadt, int PE, double len);
 std::vector<input_t> removeHighUCN_sing(std::vector<input_t> &cts, std::vector<coinc_t> &coinc, double window, int maxPE);
 std::vector<coinc_t> removeHighUCN_coinc(std::vector<coinc_t> &coinc, double window, int maxPE);
 void fitBkgUnload(Run* mcs1, Run* mcs2, EMS* ems);

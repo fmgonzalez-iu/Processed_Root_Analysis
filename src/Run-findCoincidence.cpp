@@ -67,7 +67,8 @@ void Run::findCoincidenceFixedTele() {
 		pmtBHits.clear();
 		coincHits.clear();
 		tailT = 0.0;
-
+		input_t prevEvt;
+		
 		// Make sure element i is in the dagger
 		if(data.at(i).ch != ch1 && data.at(i).ch != ch2) { continue; }
 		
@@ -124,10 +125,12 @@ void Run::findCoincidenceFixedTele() {
 					pmtBHits.push_back(data.at(cur));
 					coincHits.push_back(data.at(cur));
 				}
+				prevEvt = data.at(cur);
 				// integrate the tail end. Add data to the sums of the 
 				// two channels. 
 				for(tailIt = cur+1; tailIt < data.size(); tailIt++) {
-					if(data.at(tailIt).time - data.at(i).time > (unsigned long) (peSumWindow/0.8)) {
+					//if(data.at(tailIt).time - data.at(i).time > (unsigned long) (peSumWindow/0.8)) {
+					if(data.at(tailIt).time - prevEvt.time > (unsigned long) (peSumWindow/0.8)) {
 						break;
 					}
 					if(data.at(tailIt).ch == ch1) {
@@ -148,12 +151,13 @@ void Run::findCoincidenceFixedTele() {
 						}
 					}
 					
-					tailT = data.at(tailIt).realtime; // Count the last time of tail
+					//tailT = data.at(tailIt).realtime; // Count the last time of tail
+					prevEvt = data.at(tailIt);
 				}
 				// Check to see if we found a neutron
 				// This particular one puts a 1.5*deadtime 
 				if((promptSum >= peSum) &&
-					(tailT - data.at(i).realtime > (double)(this->fastDT*(ch1PESum+ch2PESum)*0.8*NANOSECOND))) {
+					(prevEvt.realtime - data.at(i).realtime > (double)(this->fastDT*(ch1PESum+ch2PESum)*0.8*NANOSECOND))) {
 					// Add to c++ vector
 					// Set cParam here.
 					cParam.realtime = data.at(i).realtime;
@@ -161,7 +165,7 @@ void Run::findCoincidenceFixedTele() {
 					cParam.pmt1 = ch1PESum;
 					cParam.pmt2 = ch2PESum;
 					cParam.prompt = promptSum;
-					cParam.length = tailT - data.at(i).realtime + peSumWindow*NANOSECOND;
+					cParam.length = prevEvt.realtime - data.at(i).realtime + peSumWindow*NANOSECOND;
 					//cParam.length = peSumWindow*NANOSECOND;
 					cParam.index = nCoinc;
 					nCoinc += 1;

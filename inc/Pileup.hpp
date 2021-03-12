@@ -16,6 +16,8 @@ class Pileup {
 		
 		void LoadCoincStatsVec(std::vector<coinc_t> coin_vec);
 		void LoadSingStatsVec(std::vector<input_t> pmt1, std::vector<input_t> pmt2);
+		void LoadSingStatsVec(std::vector<input_t> pmt);
+		void LoadSingStatsVec(std::vector<coinc_t> pmt);
 		
 		
 		void SetBackground(double bkgRate);

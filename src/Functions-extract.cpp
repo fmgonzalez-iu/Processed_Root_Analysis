@@ -1,12 +1,12 @@
 #include "../inc/Functions.hpp"
 
 /* define constants we need for later */
-#define NANOSECOND .000000001
-#define WINDOW 40000
-#define bkgMov50ns8pe 0.10666
-#define bkgMov50ns1000ns6pe 0.3
-#define synthbkg_50_500_2 0.0
-#define TAUN 877.7
+//#define NANOSECOND .000000001
+//#define WINDOW 40000
+//#define bkgMov50ns8pe 0.10666
+//#define bkgMov50ns1000ns6pe 0.3
+//#define synthbkg_50_500_2 0.0
+//#define TAUN 877.7
 
 /*----------------------------------------------------------------------
  *		Author: F. Gonzalez
@@ -152,7 +152,7 @@ int tagbitTagger(Run* mcs1, Run* mcs2, bool verbose) {
 	printf("Outputting data to tagTiming.csv!\n");
 
 	printf("Run: %d \nFill: %f \nClean: %f \nHold: %f \nnDips: %d \nH-GX Spacing: %f \nH-GX Pulses: %d \nBackground: %f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
-	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
+	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
 	fclose(outfile);
 	return 0;
 }
@@ -179,6 +179,9 @@ void holdingPressure(Run* mcs1, Run* mcs2, EMS* ems0) {
 	if (dagSteps.size() > 2) { 
 		countEnd = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1);
 	} else {
+		countEnd = *(dagSteps.end()-1);
+	}
+	if (countEnd <= fillEnd) {
 		countEnd = *(dagSteps.end()-1);
 	}
 	
@@ -297,7 +300,7 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 		//printf("No TC file found, assuming 70 s fit!\n");
 		for (int i = 1; i < 11; i++) {
 			rawDet.push_back(i);
-			kappa.push_back(0.0); // No tc_file means no weighting
+			kappa.push_back(70.0); // No tc_file means no weighting
 			kappaE.push_back(0.0);
 		}
 	}
@@ -394,13 +397,24 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 	std::vector<coinc_t> bkgDagCt = dagMCS->getCoincCounts(
 		[](coinc_t x)->coinc_t{return x;},
 		[bkgStart, bkgEnd](coinc_t x)->bool{return (x.realtime > bkgStart && x.realtime < bkgEnd);}
-	);			
+	);
+	
+	// Pileup stuff for 1 PMT
+	Pileup puTmp1(dagMCS, 0., 0., lastDip, countEnd);
+	Pileup puTmp2(dagMCS, 0., 0., lastDip, countEnd);
+	std::vector<input_t> puDag1t = dagMCS->getCounts(
+		[](input_t x)->input_t{return x;},
+		[c1,lastDip,countEnd](input_t x)->bool{return (x.ch == c1 && x.realtime > lastDip && x.realtime < countEnd);}
+	);
+	std::vector<input_t> puDag2t = dagMCS->getCounts(
+		[](input_t x)->input_t{return x;},
+		[c2,lastDip,countEnd](input_t x)->bool{return (x.ch == c2 && x.realtime > lastDip && x.realtime < countEnd);}
+	);
 	printf("Loaded coinces background\n");
 	// Now do operations on our temp counts
 	//std::vector<input_t> bkgDag1;
 	//std::vector<input_t> bkgDag2;
 	//std::vector<coinc_t> bkgDagC;
-	
 	double bkgDag1Size;
 	double bkgDag2Size;
 	double bkgDagCSize;
@@ -410,22 +424,38 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 		int PESum = ceil(dagMCS->getPeSum() / 2.0);  // Half the photon thr.
 		// Need to RDE these...
 		std::vector<coinc_t> bkgDag1 = getSelfCoincs(bkgDag1t, coinWindow, PEWindow, PESum);
+		std::vector<coinc_t> puDag1  = getSelfCoincs(puDag1t,  coinWindow, PEWindow, PESum);
 		bkgDag1Size = (double)bkgDag1.size();
 		std::vector<coinc_t> bkgDag2 = getSelfCoincs(bkgDag2t, coinWindow, PEWindow, PESum);
+		std::vector<coinc_t> puDag2  = getSelfCoincs(puDag2t,  coinWindow, PEWindow, PESum);
 		bkgDag2Size = (double)bkgDag2.size();
+		
 		std::vector<coinc_t> bkgDagC = bkgDagCt;
-		bkgDagCSize = (double)bkgDagC.size();
+		bkgDagCSize = (double)bkgDagC.size();	
+		puTmp1.LoadSingStatsVec(puDag1);
+		puTmp2.LoadSingStatsVec(puDag2);
 	} else if ((cMode == 7) || (cMode == 8)) {
 		std::vector<input_t> bkgDag1 = imposeDeadtime(bkgDag1t,500*NANOSECOND);
+		std::vector<input_t> puDag1 = imposeDeadtime(puDag1t,500*NANOSECOND);
 		bkgDag1Size = (double)bkgDag1.size();
 		std::vector<input_t> bkgDag2 = imposeDeadtime(bkgDag2t,500*NANOSECOND);
+		std::vector<input_t> puDag2 = imposeDeadtime(puDag2t,500*NANOSECOND);
 		bkgDag2Size = (double)bkgDag2.size();
 		std::vector<coinc_t> bkgDagC = bkgDagCt;
 		bkgDagCSize = (double)bkgDagC.size();
+		puTmp1.LoadSingStatsVec(puDag1);
+		puTmp2.LoadSingStatsVec(puDag2);
 	} else if ((cMode == 9) || (cMode == 10)) {
+		std::vector<coinc_t> puDagCt = dagMCS->getCoincCounts(
+			[](coinc_t x)->coinc_t{return x;},
+			[lastDip, countEnd](coinc_t x)->bool{return (x.realtime > lastDip && x.realtime < countEnd);}
+		);
+		
 		std::vector<input_t> bkgDag1 = removeElectricNoise_sing(bkgDag1t,bkgDagCt,24*NANOSECOND,dagMCS->getPeSum());
+		std::vector<input_t> puDag1 = removeElectricNoise_sing(puDag1t,puDagCt,24*NANOSECOND,dagMCS->getPeSum());
 		bkgDag1Size = (double)bkgDag1.size();
 		std::vector<input_t> bkgDag2 = removeElectricNoise_sing(bkgDag2t,bkgDagCt,24*NANOSECOND,dagMCS->getPeSum());
+		std::vector<input_t> puDag2 = removeElectricNoise_sing(puDag2t,puDagCt,24*NANOSECOND,dagMCS->getPeSum());
 		bkgDag2Size = (double)bkgDag2.size();
 		std::vector<coinc_t> bkgDagC = removeElectricNoise_coinc(bkgDagCt,24*NANOSECOND,dagMCS->getPeSum());
 		bkgDagCSize = (double)bkgDagC.size();
@@ -434,10 +464,14 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 		//bkgDag1Size += (unsigned long)ceil(getDeadTimeSing(bkgDag1, bkgStart, bkgEnd));
 		//bkgDag2Size += (unsigned long)ceil(getDeadTimeSing(bkgDag2, bkgStart, bkgEnd));
 		//bkgDagCSize += (unsigned long)ceil(getDeadTimeCoinc(bkgDagC, bkgStart, bkgEnd));	
+		puTmp1.LoadSingStatsVec(puDag1);
+		puTmp2.LoadSingStatsVec(puDag2);
 		bkgDag1Size += getDeadTimeSing(bkgDag1, bkgStart, bkgEnd);
 		bkgDag2Size += getDeadTimeSing(bkgDag2, bkgStart, bkgEnd);
 		bkgDagCSize += getDeadTimeCoinc(bkgDagC, bkgStart, bkgEnd);	
 	} else {
+		puTmp1.LoadSingStatsVec(puDag1t);
+		puTmp2.LoadSingStatsVec(puDag2t);
 		bkgDag1Size = (double)bkgDag1t.size();
 		bkgDag2Size = (double)bkgDag2t.size();
 		bkgDagCSize = (double)bkgDagCt.size();
@@ -473,6 +507,14 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 	}
 	fprintf(outfileDet,"\n");
 	fclose(outfileDet);
+	
+	puTmp1.SetCoincBackground(bkgDagCSize/(bkgEnd-bkgStart));
+	puTmp2.SetCoincBackground(bkgDagCSize/(bkgEnd-bkgStart));	
+	puTmp1.SetBackground(bkgDag1Size/(bkgEnd-bkgStart));
+	puTmp2.SetBackground(bkgDag2Size/(bkgEnd-bkgStart));
+	
+	double puAmp1 = puTmp1.GetAmplitude(); // For singles, record the amplitudes.
+	double puAmp2 = puTmp2.GetAmplitude();
 	
 	// Now output dagger detector data
 	FILE* outfileSing;
@@ -581,10 +623,12 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 				corr1 = getDeadTimeCoinc( cts1, tempSta, tempEnd);
 				corr2 = getDeadTimeCoinc( cts2, tempSta, tempEnd);
 				
-				if (ctsC.size() > 0) { // divide by zero
+				coin1 = puAmp1;
+				coin2 = puAmp2;
+				/*if (ctsC.size() > 0) { // divide by zero
 					coin1 = ((double)cts1Size)/((double)ctsCSize);
 					coin2 = ((double)cts2Size)/((double)ctsCSize);
-				}
+				}*/
 			} else { // cts1 as format input_t
 				std::vector<input_t> cts1;
 				std::vector<input_t> cts2;
@@ -613,7 +657,7 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 				corr1 = getDeadTimeSing( cts1, tempSta, tempEnd);
 				corr2 = getDeadTimeSing( cts2, tempSta, tempEnd);
 				
-				if (ctsC.size() > 0) { // divide by zero
+				/*if (ctsC.size() > 0) { // divide by zero
 					coin1 = 0.0;
 					coin2 = 0.0;
 					for (auto cIt = ctsC.begin(); cIt < ctsC.end(); cIt++) {
@@ -622,7 +666,9 @@ void normNByDip(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 					}
 					coin1 = coin1 / (double)ctsC.size();
 					coin2 = coin2 / (double)ctsC.size();
-				}
+				}*/
+				coin1 = puAmp1;
+				coin2 = puAmp2;
 			}			
 			// Find Mean Arrival Time
 			//double stepMean1 = cts1.size() > 0 ? std::accumulate(cts1.begin(), cts1.end(), 0.0, [](double m, input_t x)->double{return m + x.realtime;}) / (double)cts1.size() : 0.0;
@@ -1333,6 +1379,7 @@ void normNByDipDet(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 	int c2 = dagMCS->getCoinC2() + dagMCS->getMCSOff();
 		
 	//std::vector<long> weightMon; // ignore uncertainties for now
+	std::vector<size_t> rawMon;
 	std::vector<measurement> weightMon;
 	std::vector<long> bkgMon;  //Bakground of monitor counts
 	for (int ii = 0; ii < rawDet.size(); ii++) {
@@ -1358,8 +1405,9 @@ void normNByDipDet(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 		);
 		//if (rawDet[ii] != 4 && runNo >= 10988) { // Putting in self-integration for detector 4
 		weightMon.push_back(expWeightMonVectBkg(detCts, kappa[ii],16*NANOSECOND,(double)bkgCts.size()/(bkgEnd-bkgMStart),fillEnd));
-		//	weightMon.push_back((double)detCts.size()); // Raw monitor counts
-			bkgMon.push_back(bkgCts.size());
+		rawMon.push_back(detCts.size());
+		//weightMon.push_back((double)detCts.size()); // Raw monitor counts
+		bkgMon.push_back(bkgCts.size());
 		/*} else {
 			std::vector<coinc_t> parseCts = getSelfCoincs(detCts,1500,0,2);
 			std::vector<coinc_t> parseBkg = getSelfCoincs(bkgCts,1500,0,2);
@@ -1370,17 +1418,17 @@ void normNByDipDet(Run* mcs1, Run* mcs2, EMS* ems0, const char* filename) {
 
 	}
 	
-	/*FILE* outfileDet;
-	outfileDet = fopen("detectorAndBkg.csv","a");
+	FILE* outfileBkg;
+	outfileBkg = fopen("detectorAndBkg.csv","a");
 	printf("Outputting monitor+background data to detectorAndBkg.csv!\n");
 	printf("\nMonitor Data -- Run: %d\nHold: %f\nBkgLen: %f\n", 
 			runNo, *dagSteps.begin() - (fillEnd+50), bkgEnd - bkgStart);
-	fprintf(outfileDet,"%d,%f,%f",runNo,*dagSteps.begin()-(fillEnd+50),bkgEnd-bkgStart);
+	fprintf(outfileBkg,"%d,%f,%f",runNo,*dagSteps.begin()-(fillEnd+50),bkgEnd-bkgStart);
 	for (size_t jt = 0; jt < weightMon.size(); jt++ ) {
-		printf("Monitor %d: %u (%u)\n",jt,weightMon[jt],bkgMon[jt]);
-		fprintf(outfileDet,",%u,%u",weightMon[jt],bkgMon[jt]);
+		printf("Monitor %d: %u (%u)\n",jt,rawMon[jt],bkgMon[jt]);
+		fprintf(outfileBkg,",%u,%u",rawMon[jt],bkgMon[jt]);
 	}
-	fprintf(outfileDet,"\n");*/
+	fprintf(outfileBkg,"\n");
 	std::vector<input_t> bkgDag1 = dagMCS->getCounts(
 		[](input_t x)->input_t{return x;},
 		[c1,bkgStart,bkgEnd](input_t x)->bool{return (x.ch == c1 && x.realtime > bkgStart && x.realtime < bkgEnd);}

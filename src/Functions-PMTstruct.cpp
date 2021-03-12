@@ -274,9 +274,10 @@ void savePMTHits(Run* mcs1, Run* mcs2, TH1D* aTime1,TH1D* aTime2,TH1D* aTime3,TH
 		case 1: { // Production
 			// find PMT hits for 2nd and 3rd dips (foreground)
 			startTime  = *(dagSteps.begin() + 1);
-			endTime = *(dagSteps.end() - 1);
-			// force Short runs
+			endTime = *(dagSteps.end() - 1) - 50.;
+			// force long runs
 			if (startTime < 650 || endTime < 850) {
+				printf("Forcing long runs!");
 				return;
 			}
 			printf("Prod.: %f, %f\n", startTime, endTime);
@@ -370,7 +371,7 @@ void savePMTHits(Run* mcs1, Run* mcs2, TH1D* aTime1,TH1D* aTime2,TH1D* aTime3,TH
 	// doing a double-loopish thing here. 
 	// choose the first coincidence we have
 	auto cIt = coincTimes.begin();
-	
+	printf("Loaded %lu of %lu isolated events\n", coincTimes.size(),coinc.size());
 	// Initialize pulse height structures
 	int type;
 	int phsA = 0;
@@ -378,13 +379,14 @@ void savePMTHits(Run* mcs1, Run* mcs2, TH1D* aTime1,TH1D* aTime2,TH1D* aTime3,TH
 	
 	// Loop through all dagger counts
 	int probA  = 0;
-	//int echoPh = 0;
+	 //int echoPh = 0;
 	int totalPh = 0;
 	int totalC  = 0;
 	for(auto dIt = dagCts.begin(); dIt < dagCts.end()-1; dIt++) {
 		// If the dagger count is outside our window, it's not one of the coincidences we care about.
 		// In this case reset! But first put our phs data into a previous histogram
-		while((dIt->realtime - cIt->realtime) > WINDOW * NANOSECOND && cIt < coincTimes.end()) {
+		double stopLen = cIt->length > WINDOW * NANOSECOND ? cIt->length : WINDOW * NANOSECOND;
+		while((dIt->realtime - cIt->realtime) > stopLen && cIt < coincTimes.end()) {
 			cIt++;
 			// Here we will fill the tree if there's a count
 			if(phsA > 0 && phsB > 0) {
@@ -396,9 +398,9 @@ void savePMTHits(Run* mcs1, Run* mcs2, TH1D* aTime1,TH1D* aTime2,TH1D* aTime3,TH
 			type = 0;
 		}
 		// Should have broken out of the dagger window loop. Now we fill photon height spectrum data
-		if(dIt->realtime >= cIt->realtime && (dIt->realtime - cIt->realtime) <= WINDOW * NANOSECOND) {
+		if(dIt->realtime >= cIt->realtime && (dIt->realtime - cIt->realtime) <= stopLen) {
 			// Load the appropriate channel
-			if((dIt->ch == 1) || (dIt->ch == 14)) {
+			if(dIt->ch == c1) {
 				phsA += 1;
 				totalPh+=1;
 			}
@@ -421,10 +423,10 @@ void savePMTHits(Run* mcs1, Run* mcs2, TH1D* aTime1,TH1D* aTime2,TH1D* aTime3,TH
 			
 			// Fill the event depending on what type of event it is.
 			// ROOT hates everything, so I said fuck it and put in 4 different histograms.
-			if(((dIt->ch == 1) || (dIt->ch == 14)) && type == 1 && phsA > 1) {aTime1->Fill(dIt->time - cIt->time);} 
-			else if(((dIt->ch == 1) || (dIt->ch == 14)) && type == 2) {aTime2->Fill(dIt->time - cIt->time);} 
-			else if(((dIt->ch == 2) || (dIt->ch == 15)) && type == 1) {aTime3->Fill(dIt->time - cIt->time);} 
-			else if(((dIt->ch == 2) || (dIt->ch == 15)) && type == 2 && phsB > 1) {aTime4->Fill(dIt->time - cIt->time);}
+			if((dIt->ch == c1) && type == 1 && phsA > 1) {aTime1->Fill(dIt->time - cIt->time);} 
+			else if((dIt->ch == c1) && type == 2) {aTime2->Fill(dIt->time - cIt->time);} 
+			else if((dIt->ch == c2) && type == 1) {aTime3->Fill(dIt->time - cIt->time);} 
+			else if((dIt->ch == c2) && type == 2 && phsB > 1) {aTime4->Fill(dIt->time - cIt->time);}
 		}
 	}
 	
@@ -490,7 +492,7 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 			//----------------------------------------------------------
 			printf("Bkg: %f, %f\n", startTime, endTime);
 		} break;
-		case 1: { // Production
+		case 1: { // Background hgt2
 			// find PMT hits for 2nd and 3rd dips (foreground)
 			startTime  = *(dagSteps.begin() + 1);
 			endTime = *(dagSteps.end() - 1);
@@ -552,11 +554,11 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 			// and export our usual runs
 			startTime = bkgStart;
 			endTime   = *(dagSteps.end()-1);
-			if (SvsL) { // Short
+			/*if (SvsL) { // Short
 				if (startTime > 1000) { return;}
 			} else { // Long
 				if (startTime < 1000) {	return;}
-			}
+			}*/
 			//----------------------------------------------------------
 			
 			//----------------------------------------------------------
@@ -567,11 +569,11 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 			startTime  = *(dagSteps.begin() + 1);
 			endTime = *(dagSteps.end() - 1);
 			
-			if (SvsL) { // Short
+			/*if (SvsL) { // Short
 				if (startTime > 650 || endTime > 850) {	return;}
 			} else { // Long
 				if (startTime < 650 || endTime < 850) {	return;}
-			}
+			}*/
 			// force long runs
 			
 			printf("Prod.: %f, %f\n", startTime, endTime);
@@ -581,11 +583,11 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 			if (SvsL) { // Short
 				startTime = dagSteps.front() - 20;
 				endTime = dagSteps.front();
-				if (startTime > 1000) {	return; }
+				//if (startTime > 1000) {	return; }
 			} else { // Long
 				startTime = dagSteps.front() - 350;
 				endTime   = dagSteps.front() - 100;
-				if (startTime < 450 || endTime <= startTime) { return; }
+				//if (startTime < 450 || endTime <= startTime) { return; }
 			}
 			printf("Hold: %f, %f\n",startTime,endTime);
 		} break;
@@ -602,9 +604,9 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 				if (dagSteps.size() > 3) {
 					countEnd = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1); // TD move at end of run
 				} 
-				if (dagSteps.front() < 1000) { // only long runs
-					return;
-				}
+				//if (dagSteps.front() < 1000) { // only long runs
+					//return;
+				//}
 			}
 			startTime = countEnd - 50; // Go for last 50s
 			endTime   = countEnd;
@@ -634,18 +636,18 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 	// Initialize and check coincidence vectors 
 	std::vector<coinc_t> coinc;
 	
-	if (cMode < 5) { // Fixed/Telescoping
+	if (cMode < 10) { // Fixed/Telescoping
 		coinc = dagMCS->getCoincCounts(
 			[](coinc_t x)->coinc_t{return x;},
 			[startTime, endTime](coinc_t x)->bool{return (x.realtime > startTime && x.realtime < endTime);}
 		);
 	}
-	if (5 <= cMode < 9) { // Going to do 5/6 as PMT 1 and 7/8 as PMT 2
+	if (11 <= cMode < 15) { // Going to do 11/12 as PMT 1 and 13/14 as PMT 2
 		// Integrated window
 		double coinWindow = dagMCS->getCoincWindow(); // Initial window
 		double PEWindow   = dagMCS->getPeSumWindow(); // Telescope window
 		int PESum = ceil(dagMCS->getPeSum() / 2.0);  // Half the photon thr.
-		if ((cMode==5) || (cMode==6)) { // PMT 1
+		if ((cMode==11) || (cMode==12)) { // PMT 1
 			// Initialize and check coincidence vectors 
 			int c1 = dagMCS->getCoinC1() + dagMCS->getMCSOff();
 			std::vector<input_t> cts = dagMCS->getCounts(
@@ -653,7 +655,7 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 				[c1,startTime, endTime](input_t x)->bool{return (x.ch == c1 && x.realtime > startTime && x.realtime < endTime);}
 			);
 			coinc = getSelfCoincs(cts, coinWindow, PEWindow, PESum);
-		} else if ((cMode==7) || (cMode==8)) { // PMT 2
+		} else if ((cMode==13) || (cMode==14)) { // PMT 2
 			// Initialize and check coincidence vectors 
 			int c2 = dagMCS->getCoinC2() + dagMCS->getMCSOff();
 			std::vector<input_t> cts = dagMCS->getCounts(
@@ -664,8 +666,7 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 		}
 	}
 	
-	
-	if(coinc.size() < 5) {
+	if(coinc.size() < 1) {
 		return;
 	}
 	// Check to make sure beam doesn't turn on during backgrounds
@@ -681,20 +682,24 @@ void savePMTHitsTiming(Run* mcs1, Run* mcs2, TH2D* hist2D, TH2D* asym2D, int bac
 		
 	// parse the coincidence vector to get only coincidences 40us apart.
 	// this is so we don't see photon tails, and thus avoid pileup.
-	// WINDOW is a global of 40 us 
+	// WINDOW is a global of 40 us, defined in Functions.hpp
 	std::vector<coinc_t> coincTimes;
-	for(auto ii = coinc.begin() + 1; ii < coinc.end() - 1; ii++) {
+	/*for(auto ii = coinc.begin() + 1; ii < coinc.end() - 1; ii++) {
 		if((ii->realtime - (ii-1)->realtime) > WINDOW * NANOSECOND 
 		   && ((ii+1)->realtime - ii->realtime) > WINDOW * NANOSECOND) {
 			coincTimes.push_back(*ii);
 		}
-	}
-	
+	}*/
+	coincTimes = coinc; // No parsing here!
+	printf("%lu,%lu\n",coinc.size(),coincTimes.size());
 	// Looping through coincidences
-	for (auto cIt = coincTimes.begin(); cIt < coincTimes.end()-1; cIt++) {
+	for (auto cIt = coincTimes.begin(); cIt < coincTimes.end(); cIt++) {
 		
 		int total  = cIt->pmt1 + cIt->pmt2; 
 		double len = cIt->length / NANOSECOND;
+		if ((7 <= cMode) && (cMode < 11)) {
+			len -= dagMCS->getPeSumWindow(); // FixedTele adds the PESum Window to the end.
+		}
 		//double ratio = (double)cIt->pmt1 / ((double)total);
 		int fast = cIt->prompt;
 		//printf("%d,%d,%f\n",total,fast,len);
@@ -845,6 +850,101 @@ void savePMTHits2D(Run* mcs1, Run* mcs2, TH2D* aTime1,TH2D* aTime2,TH2D* aTime3,
 		}
 		}
 	}
+}
+
+void numPhotonsByTime(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* pmtCSum, double holdT) {
+	// For creating the number of photons in coincidence events as a function 
+	// of time
+	int runNo = mcs1->getRunNo();
+	int cMode = mcs1->getCoincMode();
+	double slop = 2.0;
+	double fillEnd = getFillEnd(mcs1, mcs2) + 50.; // Hard coding 50s clean
+	// load tagbit timing
+	std::vector<double> dagSteps = dagDips(mcs1, mcs2);
+	if(dagSteps.empty() || (dagSteps.end() <= dagSteps.begin())) { 
+		fprintf(stderr, "Skipping run %d for no Dagger Movement\n", runNo);
+		return;
+	}
+
+	// might need to modify position of start/stop for our dips
+	double cntStart = *(dagSteps.begin());
+	double bkgStart = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1);
+	double bkgEnd = *(dagSteps.end()-1);
+	if (cntStart - fillEnd > holdT + slop || cntStart - fillEnd < holdT - slop) {
+		printf("Skipping Run -- not specified holding time (%d s)!!\n", (int)(holdT));
+		printf("   This is a %d s hold.\n", (int)(cntStart - fillEnd));
+		return;
+	}
+	if (bkgEnd < bkgStart) {
+		printf("Skipping due to background timing bug!\n");
+		printf("bkgStart = %f, bkgEnd = %f\n",bkgStart,bkgEnd);
+		return;
+	}
+	std::vector<double> beamHits = hMinGxHits(mcs1, mcs2, fillEnd);
+	// Make sure the run actually loaded...
+	if(beamHits.empty() || (beamHits.end() <= beamHits.begin())) {
+		fprintf(stderr, "Skipping run %d for empty H-GX hits\n", runNo);
+		return;
+	}
+	
+	// Now set up the main MCS
+	Run* dagMCS;
+	if ((cMode % 2) == 1) { 
+		dagMCS = mcs1; // Low Thresh.
+	} else {
+		dagMCS = mcs2; // High Thresh.
+	}
+	// And figure out which channels to use
+	int c1 = dagMCS->getCoinC1() + dagMCS->getMCSOff();
+	int c2 = dagMCS->getCoinC2() + dagMCS->getMCSOff();
+	
+	// Just need coincidence counting
+	std::vector<coinc_t> coinc = dagMCS->getCoincCounts(
+		[cntStart](coinc_t x)->coinc_t{coinc_t y = x; y.realtime -= cntStart; return y;},
+		[cntStart, bkgEnd](coinc_t x)->bool{return (x.realtime > cntStart && x.realtime < bkgEnd);}
+	);
+	
+	// Look at TH1D*s longPMT(i). Extract the number and size of the bins
+	int nBins = pmt1Sum->GetNbinsX(); // We have problems if there's different pmts and stuff
+	double binTime = (pmt1Sum->GetXaxis()->GetBinCenter(2) - pmt1Sum->GetXaxis()->GetBinCenter(1));
+
+	// Clone pmtSums so we can add to them; make their clones empty
+	// Ignore the first bin -- that's our counter bin
+	TH1D* pmt1Tmp = (TH1D*) pmt1Sum->Clone();
+	for (int ii = 1; ii < nBins; ii++) { pmt1Tmp->SetBinContent(ii, 0); }
+	pmt1Tmp->SetBinContent(0,1);
+	TH1D* pmt2Tmp = (TH1D*) pmt2Sum->Clone();
+	for (int ii = 1; ii < nBins; ii++) { pmt2Tmp->SetBinContent(ii, 0); }
+	pmt2Tmp->SetBinContent(0,1);
+	TH1D* pmtCTmp = (TH1D*) pmtCSum->Clone();
+	for (int ii = 1; ii < nBins; ii++) { pmtCTmp->SetBinContent(ii, 0); }
+	pmtCTmp->SetBinContent(0,1);
+	
+	// Now loop through the events, wanting to sum the counts up
+	int time = 1;
+	int cts1 = 0;
+	int cts2 = 0;
+	int ctsC = 0;
+	for(auto ctsIt = coinc.begin(); ctsIt < coinc.end(); ctsIt++) {
+		if(floor((*ctsIt).realtime / binTime) > time) {
+			pmt1Tmp->SetBinContent(time, cts1);
+			pmt2Tmp->SetBinContent(time, cts2);
+			pmtCTmp->SetBinContent(time, ctsC);
+			cts1 = 0;
+			cts2 = 0;
+			ctsC = 0;
+			while (floor((*ctsIt).realtime / binTime) > time) {
+				time++;
+			}
+		}
+		cts1 += (*ctsIt).pmt1;
+		cts2 += (*ctsIt).pmt2;
+		ctsC++;
+	}
+	
+	pmt1Sum->Add(pmt1Tmp,1.);
+	pmt2Sum->Add(pmt2Tmp,1.);
+	pmtCSum->Add(pmtCTmp,1.);
 }
 
 /* Create Histogram of Next PMT hit */

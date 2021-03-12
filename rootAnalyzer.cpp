@@ -75,9 +75,11 @@ char* getFileName(int run_num) {
 	
 	// Also hard coding in run 3412 as the beginning of 2017.
 	// 9519-9538 are in both directories BUT only in 2018 runlogdump.
-	if ((3412 <= run_num) && (run_num < 9519)) {
+	//if ((3412 <= run_num) && (run_num < 9519)) {
+	if ((3412 <= run_num) && (run_num < 9927)) {
 		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc17);
-	} else if ((9519 <= run_num) && (run_num < 14732)) {
+	//} else if ((9519 <= run_num) && (run_num < 14732)) {
+	} else if ((9927 <= run_num) && (run_num < 14732)) {
 		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc18);
 	} else if((14732 <= run_num) && (run_num < 17999)) {
 		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc19);
@@ -135,11 +137,23 @@ void save1DRootCSV(char* saveNameTmp, TH1D hist, int nBins) {
 	strncpy(saveName,saveNameTmp,256);
 	FILE* outfile = fopen(saveName,"w");
 	for (int ii = 0; ii < (nBins - 1); ii++) { // And save
-		if ((hist.GetBinContent(ii) > 0) && (hist.GetBinContent(ii+1) > 0)) { // Make sure it's positive
-			fprintf(outfile,"%d,%d\n",(int)(hist.GetBinContent(ii)),ii);
+		if ((hist.GetBinContent(ii) >= 0) && (hist.GetBinContent(ii+1) >= 0)) { // Make sure it's positive
+			fprintf(outfile,"%d,%d\n",ii,(int)(hist.GetBinContent(ii)));
 		} else {
-			fprintf(outfile,"%d,%d\n",0,ii);
+			fprintf(outfile,"%d,%d\n",ii,0);
 		}
+	}
+	fclose(outfile);
+}
+
+void save1DRootCSV_float(char* saveNameTmp, TH1D hist, int nBins) {
+	// Convert a 1D Root Histogram to a csv
+	 
+	char saveName[256]; // First, copy the 256 character pointer to the saveName
+	strncpy(saveName,saveNameTmp,256);
+	FILE* outfile = fopen(saveName,"w");
+	for (int ii = 0; ii < (nBins - 1); ii++) { // And save
+		fprintf(outfile,"%d,%f\n",ii,hist.GetBinContent(ii));
 	}
 	fclose(outfile);
 }
@@ -190,14 +204,16 @@ void functionality_summing(std::vector<int> runList, params_in params, int setti
 		case 5: { nBins=1;    start=0; end=1;    } break; // FitFill, doesn't need hists
 		case 6: { nBins=2200; start=0; end=2200; } break; // Active Cleaner Summing
 		case 7: { nBins=1550; start=0; end=1550; } break; // Long Holding Times
-		case 8: { nBins=1550; start=0; end=1550; } break; // Just putting this in to not brak thing
+		case 8: { nBins=1000; start=0; end=1000; } break; // Just putting this in to not brak thing
 		case 9: { nBins=3100; start=0; end=310;  } break; // Summing Peak 1
-		case 10:{ 
-			if (params.jobid >= 9000) { // This isn't the actual break, but for the memes...
-				nBins=580;  start=0; end=580; // Assume 20s holds(?)
+		case 10:{ // Monitor Summer
+			nBins=2200; start=0; end=2200; } break; // Put this in for full run monitors
+			if (params.jobid >= 9000) { // This isn't the actual break, but for the memes.
+				nBins=580;  start=0; end=580; // For 20s holds
 			} else {  
-				nBins=730;  start=0; end=730; } } break; // Monitor Summer
+				nBins=730;  start=0; end=730; } } break; 
 		case 11:{ nBins=2200; start=0; end=2200; } break; // Full Run Summer (dagger)
+		case 12:{ nBins=2600; start=0; end=260; } break; // Technically coincidence structure.
 	}
 	
 	// There's 5 unique 1D histograms at any given time.
@@ -206,8 +222,9 @@ void functionality_summing(std::vector<int> runList, params_in params, int setti
 	TH1D hist3("summed3","summed3",nBins,start,end);
 	TH1D hist4("summed4","summed4",nBins,start,end);
 	TH1D hist5("summed5","summed5",nBins,start,end);
-	
+	TH1D hist6("summed6","summed6",nBins,start,end);
 	char* fName;
+	
 	for (auto rIt = runList.begin(); rIt < runList.end(); rIt++) {
 	
 		int runNo = *rIt;
@@ -236,15 +253,20 @@ void functionality_summing(std::vector<int> runList, params_in params, int setti
 					}} break;
 				case 6: {acSummerCoinc(&runMCS1, &runMCS2, &hist1, 20.0);} break;
 				case 7: {longHoldSummer(&runMCS1, &runMCS2, &hist1, &hist2, &hist3);} break;
-				case 8: {bkgSummer(&runMCS1, &runMCS2, &hist1,&hist2);} break;
-				case 9: {peak1SummerS(&runMCS1, &runMCS2,&hist1,&hist2);
-						 peak1SummerL(&runMCS1, &runMCS2,&hist3,&hist4);} break;
-				case 10: {monSummer(&runMCS1,&runMCS2,nBins,3,&hist1); // GV
-						  monSummer(&runMCS1,&runMCS2,nBins,4,&hist2); // Ba/RHAC
-						  monSummer(&runMCS1,&runMCS2,nBins,5,&hist3); // SP
-						  monSummer(&runMCS1,&runMCS2,nBins,7,&hist4); // DS
-						  monSummer(&runMCS1,&runMCS2,nBins,8,&hist5); } break; // Foil/RH
+				case 8: {bkgSummer(&runMCS1, &runMCS2, &hist1,&hist2,&hist3);} break;
+				case 9: {peak1SummerS(&runMCS1, &runMCS2,&hist1,&hist2,true);
+						 peak1SummerS(&runMCS1, &runMCS2,&hist3,&hist4,false);} break;
+						 //peak1SummerL(&runMCS1, &runMCS2,&hist3,&hist4);} break;
+				case 10: { bool multiHold = true;
+						  if (params.jobid > 1000) { 	multiHold = false;}
+						  monSummer(&runMCS1,&runMCS2,nBins,3,&hist1,multiHold); // GV
+						  monSummer(&runMCS1,&runMCS2,nBins,4,&hist2,multiHold); // Ba/RHAC
+						  monSummer(&runMCS1,&runMCS2,nBins,5,&hist3,multiHold); // SP
+						  monSummer(&runMCS1,&runMCS2,nBins,7,&hist4,multiHold); // DS
+						  monSummer(&runMCS1,&runMCS2,nBins,8,&hist5,multiHold); } break; // Foil/RH
 				case 11: {totalSummer(&runMCS1, &runMCS2, &hist1, &hist2, &hist3, 20.0);}break;
+				case 12: {numPhotonsByTime(&runMCS1, &runMCS2, &hist1, &hist2, &hist3, 20.);
+						  numPhotonsByTime(&runMCS1, &runMCS2, &hist4, &hist5, &hist6, 1550.); } break;
 				default: {
 					printf("Invalid setting %d for function 2!\n",setting);
 				} 
@@ -331,54 +353,126 @@ void functionality_summing(std::vector<int> runList, params_in params, int setti
 			snprintf(tmpName,256,dirName,"bkgSum2.root%d");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist2.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"bkgSumC.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist3.SaveAs(rootName);
+			// Save an output .csv file
+			snprintf(tmpName,256,dirName,"bkgByPMT.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save3DRootCSV(csvName,hist1,hist2,hist3,nBins);
 			} break;
 		case 9: {
 			snprintf(tmpName,256,dirName,"dipSumACS.root%d");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist2.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"dipSumACS.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist2, nBins);
+			
 			snprintf(tmpName,256,dirName,"dipSumS.root%d");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist1.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"dipSumS.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist1, nBins);
+			
 			snprintf(tmpName,256,dirName,"dipSumACL.root%d");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist4.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"dipSumACL.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist4, nBins);
+			
 			snprintf(tmpName,256,dirName,"dipSumL.root%d");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist3.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"dipSumL.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist3, nBins);
+			
 			}break;
 		case 10: {
 			// Hard code this stuff	
-			snprintf(tmpName,256,dirName,"monSumGV.root%d");
+			snprintf(tmpName,256,dirName,"monSumGV_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist1.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"monSumRHAC.root%d");
+			snprintf(tmpName,256,dirName,"monSumGV_%05d.csv");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist1, nBins);
+			
+			snprintf(tmpName,256,dirName,"monSumRHAC_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist2.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"monSumSP.root%d");
+			snprintf(tmpName,256,dirName,"monSumRHAC_%05d.csv");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist2, nBins);
+			
+			snprintf(tmpName,256,dirName,"monSumSP_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist3.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"monSumDS.root%d");
+			snprintf(tmpName,256,dirName,"monSumSP_%05d.csv");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist3, nBins);
+			
+			snprintf(tmpName,256,dirName,"monSumDS_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist4.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"monSumRH.root%d");
+			snprintf(tmpName,256,dirName,"monSumDS_%05d.csv");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist4, nBins);
+			
+			snprintf(tmpName,256,dirName,"monSumRH_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist5.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"monSumRH_%05d.csv");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save1DRootCSV_float(csvName, hist5, nBins);
 			} break;
 		case 11: {			
 			// Save the root files
-			snprintf(tmpName,256,dirName,"totalPMT1.root%d");
+			snprintf(tmpName,256,dirName,"totalPMT1_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist1.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"totalPMT2.root%d");
+			snprintf(tmpName,256,dirName,"totalPMT2_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist2.SaveAs(rootName);
-			snprintf(tmpName,256,dirName,"totalPMTC.root%d");
+			snprintf(tmpName,256,dirName,"totalPMTC_%05d.root");
 			snprintf(rootName,256,tmpName,params.jobid);
 			hist3.SaveAs(rootName);
 			// Save an output .csv file
-			snprintf(tmpName,256,dirName,"totalByPMT.csv%d");
+			snprintf(tmpName,256,dirName,"totalByPMT_%05d.csv");
 			snprintf(csvName,256,tmpName,params.jobid);
 			save3DRootCSV(csvName,hist1,hist2,hist3,nBins);
+		} break;
+		case 12: {
+			// Save the root files
+			snprintf(tmpName,256,dirName,"coincPE1_S.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist1.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"coincPE2_S.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist2.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"coincPEC_S.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist3.SaveAs(rootName);
+			// Save an output .csv file
+			snprintf(tmpName,256,dirName,"coincPE_S.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save3DRootCSV(csvName,hist1,hist2,hist3,nBins);
+			// Save the root files
+			snprintf(tmpName,256,dirName,"coincPE1_L.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist4.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"coincPE2_L.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist5.SaveAs(rootName);
+			snprintf(tmpName,256,dirName,"coincPEC_L.root%d");
+			snprintf(rootName,256,tmpName,params.jobid);
+			hist6.SaveAs(rootName);
+			// Save an output .csv file
+			snprintf(tmpName,256,dirName,"coincPE_L.csv%d");
+			snprintf(csvName,256,tmpName,params.jobid);
+			save3DRootCSV(csvName,hist4,hist5,hist6,nBins);
 		} break;
 		default: {printf("Invalid setting %d for function 2!\n",setting); } break;
 	}		
@@ -438,22 +532,22 @@ void functionality_coinc(std::vector<int> runList, params_in params, int setting
 	int nTiming2D2;
 	switch (setting) {
 		case 1: { // Cases 1-4 are various PMT timing and PHS 
-			nTiming1D = 50000;
+			nTiming1D = 64000;
 			nTiming2D1 = 75;
 			nTiming2D2 = 75;
 		} break;
 		case 2: {
-			nTiming1D = 50000;
+			nTiming1D = 64000;
 			nTiming2D1 = 75;
 			nTiming2D2 = 75;
 		} break;
 		case 3: {
-			nTiming1D = 50000;
+			nTiming1D = 64000;
 			nTiming2D1 = 75;
 			nTiming2D2 = 75;
 		} break;
 		case 4: {
-			nTiming1D = 50000;
+			nTiming1D = 64000;
 			nTiming2D1 = 75;
 			nTiming2D2 = 75;
 		} break;
@@ -493,12 +587,12 @@ void functionality_coinc(std::vector<int> runList, params_in params, int setting
 	TH1D pTiming4("pTiming4", "pTiming4", nTiming1D+1,0,nTiming1D);
 	
 	// phsHits is an integer!
-	TH2I phsHits("phsHits", "phsHits",nTiming2D1+1,1,nTiming2D1,nTiming2D2+1,1,nTiming2D2); // Pulse height spectrum
+	TH2I phsHits("phsHits", "phsHits",nTiming2D1+1,0,nTiming2D1,nTiming2D2+1,0,nTiming2D2); // Pulse height spectrum
 	// Pulse timing spectrum (2D -- time and number of hits), doubles.
-	TH2D pT2D1("pTiming2D1","pTiming2D1",nTiming2D1+1,0,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
-	TH2D pT2D2("pTiming2D2","pTiming2D2",nTiming2D1+1,0,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
-	TH2D pT2D3("pTiming2D3","pTiming2D3",nTiming2D1+1,0,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
-	TH2D pT2D4("pTiming2D4","pTiming2D4",nTiming2D1+1,0,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
+	TH2D pT2D1("pTiming2D1","pTiming2D1",nTiming2D1+1,1,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
+	TH2D pT2D2("pTiming2D2","pTiming2D2",nTiming2D1+1,1,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
+	TH2D pT2D3("pTiming2D3","pTiming2D3",nTiming2D1+1,1,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
+	TH2D pT2D4("pTiming2D4","pTiming2D4",nTiming2D1+1,1,nTiming2D1,nTiming2D2+1,1,nTiming2D2);
 		
 	char* fName;
 	for (auto rIt = runList.begin(); rIt < runList.end(); rIt++) {
@@ -936,10 +1030,10 @@ void functionality_fastPMT(std::vector<int> runList, params_in params, int setti
 	const char* traceLoc = std::getenv("TRACE_LOC"); // Exp fill time const.
 	const char* saveLoc  = std::getenv("SAVE_LOC");  // Save location for ROOT drawings
 	
-	int bin2d = 151; // bin divider
-	int photons1 = 150; // photon number
-	int photons2 = 150; // I think I had some variable in the asym number?
-	int time = 7500; // number of timesteps
+	int bin2d = 101; // bin divider
+	int photons1 = 100; // photon number
+	int photons2 = 100; // I think I had some variable in the asym number?
+	int time = 10000; // number of timesteps
 	
 	TH2D time2d("photons","photons",bin2d,0,photons1,bin2d,0,time);
 	TH2D asym2d("asByL","asByL",bin2d,0,photons1,bin2d,0,photons2);
@@ -968,8 +1062,8 @@ void functionality_fastPMT(std::vector<int> runList, params_in params, int setti
 				case 8: { savePMTHitsTiming(&runMCS1, &runMCS2, &time2d, &asym2d, 7);} break;
 				default:{
 					printf("Invalid setting %d for function 'Fast Coinc'!\n",setting);
-				}
-			} break;
+				} break;
+			} 
 		}
 		fflush(stdout);
 	}
@@ -1183,11 +1277,11 @@ int main(int argc, const char** argv) {
 	}
 	
 	// TODO: maybe a lookup table (combine with the intro check)
-	if ((params.coincMode > 10) && (functionality !=4)){
+	if ((params.coincMode > 999) && (functionality !=4)){
 		printf("Invalid coincidence mode specified! \n");
 		return 1;
 	}
-	if (functionality > 11 || setting > 11) {
+	if (functionality > 15 || setting > 15) {
 		printf("Invalid functionality or setting! Check your table here...\n");
 		return 1;
 	}

@@ -42,87 +42,19 @@ void acSummer(Run* mcs1, Run* mcs2, TH1D* histSum) {
 	printf("\n");
 };
 
-void peak1SummerS(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum) {
-	
-	// Load tagbits and timings
-	int runNo = mcs1->getRunNo();
-	// Load end of fill
-	double fillEnd = getFillEnd(mcs1, mcs2);
-	std::vector<double> dagSteps = dagDips(mcs1,mcs2);	
-	
-	if(dagSteps.empty() || (dagSteps.end() <= dagSteps.begin())) { 
-		fprintf(stderr, "Skipping run %d for no Dagger Movement\n", runNo);
-		return;
-	}
-	
-	// Begin hold after cleaning
-	double holdStart = fillEnd + 50.0;
-	double holdEnd = *dagSteps.begin(); // Beginning of counting time
-	double bkgEnd = *(dagSteps.end()-1); // End of counting time
-	
-
-	// I've written two peak1Summer Histogram functions -- for short and long.
-	if (holdEnd - holdStart > 21.0) {
-		printf("Skipping hold, long storage time! (%d s) \n", (int)(holdEnd - holdStart));
-		return;
-	}
-	
-	if (bkgEnd - holdEnd < 40.0) {
-		printf("Skipping hold, not enough time in counting period!\n");
-		return;
-	}
-	
-	Run* dagMCS; // Figure out which MCS is the dagger
-	if ((mcs1->getCoincMode() == 1) || (mcs1->getCoincMode() == 2)) {
-		dagMCS = mcs1;
-	} else if ((mcs1->getCoincMode() == 3) || (mcs1->getCoincMode() == 4)) {
-		dagMCS = mcs2;
-	}
-	int cAc = 1 + mcs2->getMCSOff(); // AC is mcs2 channel 1 (so offset somehow)
-	
-	std::vector<input_t> acCts = mcs2->getCounts(
-		[holdEnd](input_t x)->input_t{input_t y = x; y.realtime -= (holdEnd - 10.0); return y;},
-		[cAc, holdEnd, bkgEnd](input_t x)->bool{return x.ch == cAc && 
-												x.realtime > holdEnd && x.realtime < bkgEnd;}
-	);
-		
-	// Set AC coincidence settings (slightly laxer than two PMTs)
-	double acCoinWindow = mcs1->getCoincWindow() * 2.0;
-	double acPEWindow   = mcs1->getPeSumWindow() * 2.0;
-	int acPESum = ceil(mcs1->getPeSum() / 2.0); 
-	
-	std::vector<coinc_t> acCoincs = getSelfCoincs(acCts,acCoinWindow,acPEWindow,acPESum);
-	
-	int numAC = 0.0;
-	if (acCoincs.back().realtime > 0 && acCoincs.back().realtime < 500) {
-		std::for_each(acCoincs.begin(),acCoincs.end(), [&acSum](coinc_t x){acSum->Fill(x.realtime);});
-		numAC += (int)acCoincs.size();
-	}
-	
-	std::vector<coinc_t> dagCts = dagMCS->getCoincCounts(
-		[holdEnd](coinc_t x)->coinc_t{coinc_t y = x; y.realtime -= (holdEnd - 10.0); return y;},
-		[holdEnd, bkgEnd](coinc_t x)->bool{return x.realtime > holdEnd && x.realtime < bkgEnd;}
-	);
-	
-	int numD = 0.0;
-	if (dagCts.back().realtime > 0 && dagCts.back().realtime < 500) {
-		std::for_each(dagCts.begin(),dagCts.end(), [&dagSum](coinc_t x){dagSum->Fill(x.realtime);});
-		numD += (int)dagCts.size();
-	}
-	
-	printf("Added %d AC and %d dagger counts!\n",numAC,numD);
-}
 // Sum over the whole run (for imaging purposes
 void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum, double holdT) {// Sum over all the dips of the histogram (with bkg sub.)
 	
 	// hard coding slop of 2.0s
 	double slop = 2.0;
 	int run = mcs1->getRunNo();
+	double fillT;
 	if (run < 9600){
-		holdT += 150.0+50.0;// 150s fill + 50s clean
+		fillT = 150.+50.;// 150s fill + 50s clean
 	} else {
-		holdT += 300.0+50.0;// 300s fill + 50s clean
+		fillT = 300.+ 50.;// 300s fill + 50s clean
 	}
+	holdT += fillT;
 	// load tagbit timing
 	std::vector<double> dagSteps = dagDips(mcs1, mcs2);
 	if(dagSteps.size() < 2) { 
@@ -135,8 +67,8 @@ void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum,
 	double bkgEnd = *(dagSteps.end()-1);
 	
 	if (cntStart > holdT + slop || cntStart < holdT - slop) {
-		printf("Skipping Run -- not specified holding time (%d s)!!\n", (int)(holdT - 350.0));
-		printf("   This is a %d s hold.\n", (int)(cntStart - 350.0));
+		printf("Skipping Run -- not specified holding time (%d s)!!\n", (int)(holdT - fillT));
+		printf("   This is a %d s hold.\n", (int)(cntStart - fillT));
 		return;
 	}
 	
@@ -194,9 +126,149 @@ void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum,
 	
 };
 
+void peak1SummerS(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum, bool sVsL) {
+	
+	// Load tagbits and timings
+	int runNo = mcs1->getRunNo();
+	int cMode = mcs1->getCoincMode();
+	// Load end of fill
+	double fillEnd = getFillEnd(mcs1, mcs2);
+	std::vector<double> dagSteps = dagDips(mcs1,mcs2);	
+	
+	if(dagSteps.empty() || (dagSteps.end() <= dagSteps.begin())) { 
+		fprintf(stderr, "Skipping run %d for no Dagger Movement\n", runNo);
+		return;
+	}
+	
+	// Begin hold after cleaning
+	double holdStart = fillEnd + 50.0;
+	double holdEnd = *dagSteps.begin(); // Beginning of counting time
+	double bkgEnd = *(dagSteps.end()-1); // End of counting time
+	
+	// I've written two peak1Summer Histogram functions -- for short and long.
+	if (sVsL) { // Short
+		if (holdEnd - holdStart > 1000.) { // Blob together all short holds.
+		//if (holdEnd - holdStart > 21.0) {
+			printf("Skipping run %05d, long storage time! (%d s) \n", runNo, (int)(holdEnd - holdStart));
+			return;
+		}
+	} else { // Long
+		if ((holdEnd - holdStart < 1000.) || (holdEnd - holdStart > 2000.))  { // Blob together all medium-long holds.
+			printf("Skipping run %05d, short storage time! (%d s) \n", runNo, (int)(holdEnd - holdStart));
+			return;
+		}
+	}
+	double lastDip;
+	double countEnd;
+	double bkgStart;
+	if (dagSteps.size() > 2) { 
+		lastDip = *(dagSteps.end() - 2);
+		countEnd = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1);
+		bkgStart = mcs1->getTagBitEvt(1<<4, *(dagSteps.end()-2), 1) + 5.0;// 1<<4 is Cat Door, add extra 5 seconds to be safe
+	} else {
+		printf("Skipping run %05d, not enough dagger steps! \n", runNo);
+		return;
+	}
+	
+	// Have to check tagbits
+	if (bkgEnd - holdEnd < 40.0) {
+		printf("Skipping run %05d, not enough time in counting period!\n", runNo);
+		return;
+	}
+
+	if ((bkgEnd - bkgStart < 30.0) || (bkgEnd < 0)) {
+		printf("Skipping run %05d, not enough time in background period!\n", runNo);
+		return;
+	}
+
+	Run* dagMCS; // Figure out which MCS is the dagger
+	// Determine the threshold
+	if ((cMode % 2) == 1) { 
+		dagMCS = mcs1; // Low Thresh.
+	} else {
+		dagMCS = mcs2; // High Thresh.
+	}
+	int cAc = 1 + mcs2->getMCSOff(); // AC is mcs2 channel 1
+	
+	// Set AC coincidence settings (slightly laxer than two PMTs)
+	double acCoinWindow = mcs1->getCoincWindow() * 2.0;
+	double acPEWindow   = mcs1->getPeSumWindow() * 2.0;
+	int acPESum = ceil(mcs1->getPeSum() / 2.0); 
+	
+	// Now we load the ac counts and the dagger counts.
+	std::vector<input_t> acRaw = mcs2->getCounts(
+		[holdEnd](input_t x)->input_t{input_t y = x; y.realtime -= holdEnd; return y;},
+		[cAc, holdEnd, bkgEnd](input_t x)->bool{return x.ch == cAc && 
+												x.realtime > holdEnd && x.realtime < bkgEnd;}
+	);
+	std::vector<coinc_t> acCts = getSelfCoincs(acRaw,acCoinWindow,acPEWindow,acPESum); // self coincidences.
+	std::vector<coinc_t> dagCts = dagMCS->getCoincCounts(
+		[holdEnd](coinc_t x)->coinc_t{coinc_t y = x; y.realtime -= holdEnd; return y;},
+		[holdEnd, bkgEnd](coinc_t x)->bool{return x.realtime > holdEnd && x.realtime < bkgEnd;}
+	);
+	
+	// We also intend to subtract background counts.
+	std::vector<input_t> acBkgRaw = mcs2->getCounts(
+		[](input_t x)->input_t{input_t y = x; return y;},
+		[cAc, bkgStart, bkgEnd](input_t x)->bool{return x.ch == cAc && 
+												x.realtime > bkgStart && x.realtime < bkgEnd;}
+	);
+	std::vector<coinc_t> acBkg = getSelfCoincs(acBkgRaw,acCoinWindow,acPEWindow,acPESum); // self coincidences.
+	std::vector<coinc_t> dagBkg = dagMCS->getCoincCounts(
+		[](coinc_t x)->coinc_t{coinc_t y = x; return y;},
+		[bkgStart, bkgEnd](coinc_t x)->bool{return x.realtime > bkgStart && x.realtime < bkgEnd;}
+	);
+	double acRate  = (double)acBkg.size() /  (bkgEnd - bkgStart);
+	double dagRate = (double)dagBkg.size() / (bkgEnd - bkgStart);
+	
+	// Now I'm going to claim that 10 Hz is something terribly wrong.
+	if ((acRate  > 10) || (dagRate > 10)) {
+		printf("Skipping run %05d, backgrounds (%0.3f, %0.3f) seem wrong!\n",runNo,acRate,dagRate);
+		return;
+	}
+	// Basic background subtraction for these histos. 
+	// Assume bin sizing is the same for each.
+	int nRuns = acSum->GetBinContent(0) + 1;
+		
+	int nBins = acSum->GetNbinsX();
+	double binTime = (acSum->GetXaxis()->GetBinCenter(2) - acSum->GetXaxis()->GetBinCenter(1));
+	// Create a bkgSub histogram with the same axes
+	TH1D* bkgSubAC = (TH1D*) acSum->Clone();  
+	TH1D* bkgSubD  = (TH1D*) dagSum->Clone();
+	for (int ii = 0; ii < nBins; ii++) {
+		bkgSubAC->SetBinContent(ii, acRate * binTime);
+		bkgSubD->SetBinContent(ii, dagRate * binTime);
+	}
+	
+	int numAC = 0.0;
+	if (acCts.back().realtime > 0 && acCts.back().realtime < 500) { // Need 500s dip time or so
+		std::for_each(acCts.begin(),acCts.end(), [&acSum](coinc_t x){acSum->Fill(x.realtime);});
+		numAC += (int)acCts.size();
+	}
+	
+	int numD = 0.0;
+	if (dagCts.back().realtime > 0 && dagCts.back().realtime < 500) {
+		std::for_each(dagCts.begin(),dagCts.end(), [&dagSum](coinc_t x){dagSum->Fill(x.realtime);});
+		numD += (int)dagCts.size();
+	}
+	
+	double binValD  = 0.;
+	double binValAC = 0.;
+	acSum->SetBinContent(0,nRuns);
+	dagSum->SetBinContent(0,nRuns);
+	for (int ii = 1; ii < nBins; ii++) {
+		binValD = dagSum->GetBinContent(ii);
+		binValAC = acSum->GetBinContent(ii);
+		acSum->SetBinContent(ii,binValAC - bkgSubAC->GetBinContent(ii));
+		dagSum->SetBinContent(ii,binValD - bkgSubD->GetBinContent(ii));	
+	}
+	
+	printf("Added %d AC and %d dagger counts!\n",numAC,numD);
+	printf("Subtracted %f and %f rates for background!\n", acRate, dagRate);
+}
 
 void peak1SummerL(Run* mcs1, Run* mcs2, TH1D* dagSum, TH1D* acSum) {
-	
+
 	// Load tagbits and timings
 	int runNo = mcs1->getRunNo();
 	// Load end of fill
@@ -367,118 +439,66 @@ void acSummerCoinc(Run* mcs1, Run* mcs2, TH1D* histSum, double holdT) {
 	
 };
 
-// Sum the background counts to see if there's time dependence there too!
-void bkgSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum) {
+// Sum the daytime background counts to see if there's time dependence there too!
+void bkgSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum,TH1D* cSum) {
 	
 	int runNo = mcs1->getRunNo();
 	// Load end of fill
-	double fillEnd = getFillEnd(mcs1, mcs2);
-	std::vector<double> dagSteps = dagDips(mcs1,mcs2);	
-	
-	double holdT = mcs1->getCoincWindow(); // Dumb thing here but w/e
-	// Begin hold after cleaning
-	double holdStart = fillEnd + 50.0;
-	double holdEnd = *dagSteps.begin();
-	if ((holdEnd - holdStart > holdT + 1.0) || (holdEnd - holdStart < holdT - 1.0)) {
-		printf("Skipping hold, not the correct holding time!");
-		printf("   This is a %d s hold.\n", (int)(holdEnd - holdStart));
-		return;
+	//double fillEnd = getFillEnd(mcs1, mcs2);
+	//std::vector<double> dagSteps = dagDips(mcs1,mcs2);	
+	double dagMvs[5]  = {0.0, 250.0, 500.0, 750.0, 1000.0};
+	double stepTime;
+	for (int i = 0; i < 3; i++) {
+		stepTime = mcs2->getTagBitEvt(1<<0, dagMvs[i] + 2.0, 1);
+		if (stepTime < 0 ) {
+			printf("Error! One or more dagger steps does not exist! Returning.\n");
+			return;
+		}
+		dagMvs[i+1] = stepTime;
 	}
 	
-	// Check if there is beam on during hold 
-	std::vector<input_t> gvCts = mcs1->getCounts(
-									[](input_t x)->input_t{return x;},
-									[holdStart,holdEnd](input_t x)->bool{return (x.ch == 3 && x.realtime > holdStart +60.0 && x.realtime < holdEnd);}
-								); 				
-	if (gvCts.size() > 3100) { // Sorta arbitrarily choosing GV > 2 Hz
-		printf("Skipping hold, rate is greater than 2 Hz!");
-		return;	
-	}
-	
-	// Determine which dagger pair we want to use
+	// Can do low or high threshold
+	int cMode = mcs1->getCoincMode();
 	Run* dagMCS;
-	if ((mcs1->getCoincMode() == 1) || (mcs1->getCoincMode() == 2)) {
-		dagMCS = mcs1;
-	} else if ((mcs1->getCoincMode() == 3) || (mcs1->getCoincMode() == 4)) {
-		dagMCS = mcs2;
+	// Here we're going to do 
+	// Determine which dagger pair we want to use
+	if ((cMode % 2) == 1) { 
+		dagMCS = mcs1; // Low Thresh.
+	} else {
+		dagMCS = mcs2; // High Thresh.
 	}
+	// And figure out which channels to use
 	int c1 = dagMCS->getCoinC1() + dagMCS->getMCSOff();
 	int c2 = dagMCS->getCoinC2() + dagMCS->getMCSOff();
-
-	// Get individual backgrounds
-	double bkgStart = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1);
-	double bkgEnd = *(dagSteps.end()-1);
-
-	if (bkgEnd < bkgStart) {
-		printf("Skipping hold, background timing bug!");
-		return;
-	}
-	
-	std::vector<input_t> bkgDag1 = dagMCS->getCounts(
-			[bkgStart](input_t x)->input_t{input_t y = x; y.realtime -= (bkgStart); return y;},
-			[c1,bkgStart,bkgEnd](input_t x)->bool{return (x.ch == c1 && x.realtime > bkgStart && x.realtime < bkgEnd);}
+	int nRuns = pmt1Sum->GetBinContent(0); // save Zeroth bin for an nruns check	
+	// Load the counts from mcs1
+	std::vector<input_t> d1Cts = dagMCS->getCounts(
+		[](input_t x)->input_t{input_t y = x; return y;},
+		[c1](input_t x)->bool{return x.ch == c1;}
+	);	
+	// Load the counts from mcs2
+	std::vector<input_t> d2Cts = dagMCS->getCounts(
+		[](input_t x)->input_t{input_t y = x; return y;},
+		[c2](input_t x)->bool{return x.ch == c2;}
 	);
-	std::vector<input_t> bkgDag2 = dagMCS->getCounts(
-			[bkgStart](input_t x)->input_t{input_t y = x; y.realtime -= (bkgStart); return y;},
-			[c2,bkgStart,bkgEnd](input_t x)->bool{return (x.ch == c2 && x.realtime > bkgStart && x.realtime < bkgEnd);}
+	std::vector<coinc_t> cCts = dagMCS->getCoincCounts(
+		[](coinc_t x)->coinc_t{return x;},
+		[](coinc_t x)->bool{return x.realtime > 0;}
 	);
 	
-	// Basic background subtraction (for scaling)
-	//double bkgRate1 = (double)bkgDag1.size() / (bkgEnd - bkgStart);
-	//double bkgRate2 = (double)bkgDag2.size() / (bkgEnd - bkgStart);
-	
-	// Look at TH1D*s longPMT(i). Extract the number and size of the bins
-	// ROOT apparently never thought this would be a simple thing to do.
-	//int nBins1 = pmt1Sum->GetNbinsX();
-	//int nBins2 = pmt2Sum->GetNbinsX();
-	/*double binTime1 = (pmt1Sum->GetXaxis()->GetBinCenter(2) - pmt1Sum->GetXaxis()->GetBinCenter(1));
-	double binTime2 = (pmt2Sum->GetXaxis()->GetBinCenter(2) - pmt2Sum->GetXaxis()->GetBinCenter(1));
-	
-	// Create bkgSub histograms with the same axes
-	TH1D* bkgSub1 = (TH1D*) pmt1Sum->Clone(); 
-	TH1D* bkgSub2 = (TH1D*) pmt2Sum->Clone();
-	for (int ii = 0; ii < nBins1; ii++) { // Background subtraction!
-		bkgSub1->SetBinContent(ii, bkgRate1 * binTime1);
-		bkgSub1->SetBinError(ii, sqrt(bkgRate1 * binTime1));
+	if(cCts.back().realtime > 0) {
+		pmt1Sum->SetBinContent(0,nRuns+1);
+		pmt2Sum->SetBinContent(0,nRuns+1);
+		cSum->SetBinContent(0,nRuns+1);
+		printf("Added PMT 1 - %lu\n", d1Cts.size());
+		printf("Added PMT 2 - %lu\n", d2Cts.size());
+		std::for_each(d1Cts.begin(), d1Cts.end(), [&pmt1Sum](input_t x){pmt1Sum->Fill(x.realtime);});
+		std::for_each(d2Cts.begin(), d2Cts.end(), [&pmt2Sum](input_t x){pmt2Sum->Fill(x.realtime);});
+		std::for_each(cCts.begin(),  cCts.end(),  [&cSum](coinc_t x){cSum->Fill(x.realtime);});
 	}
-	for (int ii = 0; ii < nBins2; ii++) {
-		bkgSub2->SetBinContent(ii, bkgRate2 * binTime2);
-		bkgSub2->SetBinError(ii, sqrt(bkgRate2 * binTime2));
-	}*/
 	
-	// Clone pmtSums so we can add to them, making them empty
-	//TH1D* pmt1Tmp = (TH1D*) pmt1Sum->Clone();
-	//for (int ii = 0; ii < nBins1; ii++) { pmt1Tmp->SetBinContent(ii, 0); }
-	//TH1D* pmt2Tmp = (TH1D*) pmt2Sum->Clone();
-	//for (int ii = 0; ii < nBins2; ii++) { pmt2Tmp->SetBinContent(ii, 0); }
+	//printf("Added %d counts to PMT1 and %d counts to PMT2\n",numC1,numC2);
 	
-	// Load into temporary histograms
-	int numC1 = 0.0;
-	int numC2 = 0.0;
-	if(bkgDag1.back().realtime > 0.0 && bkgDag1.back().realtime < bkgEnd-bkgStart) { // did we load stuff?
-		std::for_each(bkgDag1.begin(), bkgDag1.end(), [&pmt1Sum](input_t x){pmt1Sum->Fill(x.realtime);}); // Note that x.realtime should be shifted by bkgStart
-		numC1 += (int)bkgDag1.size();
-	}
-	if(bkgDag2.back().realtime > 0 && bkgDag2.back().realtime < bkgEnd-bkgStart) {
-		std::for_each(bkgDag2.begin(), bkgDag2.end(), [&pmt2Sum](input_t x){pmt2Sum->Fill(x.realtime);});
-		numC2 += (int)bkgDag2.size();
-	}	
-		
-	// Re-scale pmtTmp errors
-	//for (int ii = 0; ii < nBins1; ii++) {
-	//	pmt1Tmp->SetBinError(ii, sqrt(pmt1Tmp->GetBinContent(ii))); // phUCN1));
-	//}
-	//for (int ii = 0; ii < nBins2; ii++) {
-//		pmt2Tmp->SetBinError(ii, sqrt(pmt2Tmp->GetBinContent(ii))); // phUCN2));
-//	}
-	
-	printf("Added %d counts to PMT1 and %d counts to PMT2\n",numC1,numC2);
-	
-	// Add to background subtracted counts
-	//pmt1Tmp->Add(bkgSub1,-1.0);
-	//pmt1Sum->Add(pmt1Tmp,1.0);
-	//pmt2Tmp->Add(bkgSub2,-1.0);
-	//pmt2Sum->Add(pmt2Tmp,1.0);
 	
 }
 
@@ -610,7 +630,7 @@ void dipSummerS(Run* mcs1, Run* mcs2, TH1D* histSum, double holdT) {
 };
 
 // Monitor summing histogram
-void monSummer(Run* mcs1, Run* mcs2, double countEnd, int mon, TH1D* histSum) {
+void monSummer(Run* mcs1, Run* mcs2, double countEnd, int mon, TH1D* histSum, bool force) {
 	// Double checking...
 	if (countEnd < 0) {return;}
 	// Load Timings:
@@ -623,16 +643,17 @@ void monSummer(Run* mcs1, Run* mcs2, double countEnd, int mon, TH1D* histSum) {
 		double holdEnd = *dagSteps.begin();
 		
 		// For this I'm going to just force a 20s hold;
-		if (holdEnd - holdStart > 25.) { return; }
-		
-		// Check if there is beam on during hold (really only for long but w/e)
-		std::vector<input_t> gvCts = mcs1->getCounts(
-							[](input_t x)->input_t{return x;},
-							[holdStart,holdEnd](input_t x)->bool{return (x.ch == 3 && x.realtime >= holdStart + 60. && x.realtime < holdEnd);}
-					); 
-		if (gvCts.size() > 3100) { // Sorta arbitrarily choosing GV > 2 Hz
-			printf("Skipping hold, rate is greater than 2 Hz!");
-			return;	
+		if (force) {
+			if (holdEnd - holdStart > 25.) { return; }
+			// Check if there is beam on during hold (really only for long but w/e)
+			std::vector<input_t> gvCts = mcs1->getCounts(
+								[](input_t x)->input_t{return x;},
+								[holdStart,holdEnd](input_t x)->bool{return (x.ch == 3 && x.realtime >= holdStart + 60. && x.realtime < holdEnd);}
+						); 
+			if (gvCts.size() > 3100) { // Sorta arbitrarily choosing GV > 2 Hz
+				printf("Skipping hold, rate is greater than 2 Hz!");
+				return;	
+			}
 		}
 	}
 	
@@ -1115,10 +1136,13 @@ void writeFastEvts(Run* mcs1, Run* mcs2, TH1D* profile) {
 		[countStart, bkgEnd](coinc_t x)->bool{return (x.realtime > countStart && x.realtime < bkgEnd);}
 	);
 
-	std::vector<coinc_t> ctsF = removeElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum());
+	//std::vector<coinc_t> ctsF = removeElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum());
+	std::vector<coinc_t> ctsF = getElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum(),dagMCS->getPeSumWindow()*NANOSECOND);
+	//std::vector<coinc_t> ctsF = getElectricNoise_coinc(cts,24*NANOSECOND,0,dagMCS->getPeSumWindow()*NANOSECOND);
+	//std::vector<coinc_t> ctsF = getElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum());
 	printf("Counts: %lu,%lu\n",cts.size(),ctsF.size());
 	// Really we're looking at "Removed" coincidences (those are the bad ones)
-	std::vector<coinc_t> removed;
+	//std::vector<coinc_t> removed;
 		
 	// for this script I only care about removed coincidences.
 	// Sort by time first
@@ -1127,8 +1151,21 @@ void writeFastEvts(Run* mcs1, Run* mcs2, TH1D* profile) {
 	unsigned long pk3Cts = 0;
 	unsigned long unlCts = 0;
 	unsigned long bkgCts = 0;
-		
-	if (cts.size() > ctsF.size()) {
+	
+	for (auto cIt = ctsF.begin(); cIt < ctsF.end(); cIt++) {
+		if (cIt->realtime>=  *(dagSteps.begin()) && cIt->realtime < *(dagSteps.begin()+1)) {
+			pk1Cts += 1;
+		} else if (cIt->realtime >=  *(dagSteps.begin()+1) && cIt->realtime < *(dagSteps.begin()+2)) {
+			pk2Cts += 1;
+		} else if (cIt->realtime >=  *(dagSteps.begin()+2) && cIt->realtime < unlEnd) {	
+			pk3Cts += 1;
+		} else if (cIt->realtime >=  unlEnd && cIt->realtime < countEnd) {	
+			unlCts += 1;
+		} else if (cIt->realtime >=  bkgStart && cIt->realtime < bkgEnd) {
+			bkgCts += 1;
+		}
+	}	
+	/*if (cts.size() > ctsF.size()) {
 		// Now need to figure out where "removed" coincidences occur.
 		size_t fInd = 0;
 		for (size_t cInd = 0; cInd < cts.size(); cInd++) { // Loop through indices
@@ -1154,13 +1191,14 @@ void writeFastEvts(Run* mcs1, Run* mcs2, TH1D* profile) {
 				bkgCts += 1;
 			}	
 		}
-	}
+	}*/
 	
 	// Now we can (1) add to our histogram and (2) write out our data
 	int nRuns = profile->GetBinContent(0); // save zeroth bin to get nruns 
 	profile->SetBinContent(0,nRuns+1);
-	if (removed.size() > 0) {
-		std::for_each(removed.begin(),removed.end(),[&profile,countStart](coinc_t x) {profile->Fill(x.realtime-countStart);});
+	if (ctsF.size() > 0) {
+		//std::for_each(removed.begin(),removed.end(),[&profile,countStart](coinc_t x) {profile->Fill(x.realtime-countStart);});
+		std::for_each(ctsF.begin(),ctsF.end(),[&profile,countStart](coinc_t x) {profile->Fill(x.realtime-countStart);});
 	}
 	FILE* outfile;
 	outfile = fopen("electricFilter.csv","a");
@@ -1214,10 +1252,12 @@ void writeFastBkgs(Run* mcs1, Run* mcs2, TH1D* profile) {
 		[](coinc_t x)->coinc_t{return x;},
 		[](coinc_t x)->bool{return (x.realtime > 0. && x.realtime < 1000.);}
 	);
-	std::vector<coinc_t> ctsF = removeElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum());
+	//std::vector<coinc_t> ctsF = removeElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum());
+	std::vector<coinc_t> ctsF = getElectricNoise_coinc(cts,24*NANOSECOND,dagMCS->getPeSum(),dagMCS->getPeSumWindow()*NANOSECOND);
+	//std::vector<coinc_t> ctsF = getElectricNoise_coinc(cts,24*NANOSECOND,0,dagMCS->getPeSumWindow()*NANOSECOND);
 	
 	// Really we're looking at "Removed" coincidences (those are the bad ones)
-	std::vector<coinc_t> removed;
+	//std::vector<coinc_t> removed;
 		
 	// for this script I only care about removed coincidences.
 	// Sort by time first
@@ -1225,8 +1265,20 @@ void writeFastBkgs(Run* mcs1, Run* mcs2, TH1D* profile) {
 	unsigned long cts49 = 0;
 	unsigned long cts25 = 0;
 	unsigned long cts1 = 0;
-			
-	if (cts.size() > ctsF.size()) {
+	
+	for (auto cIt = ctsF.begin(); cIt < ctsF.end(); cIt++) {
+		if (cIt->realtime >=  dagMvs[0] && cIt->realtime < dagMvs[1]) {
+			cts38 += 1;
+		} else if (cIt->realtime >=  dagMvs[1] && cIt->realtime < dagMvs[2]) {
+			cts49 += 1;
+		} else if (cIt->realtime >=  dagMvs[2] && cIt->realtime < dagMvs[3]) {	
+			cts25 += 1;
+		} else if (cIt->realtime >=  dagMvs[3] && cIt->realtime < dagMvs[4]) {	
+			cts1 += 1;
+		}	
+	}
+	
+	/*if (cts.size() > ctsF.size()) {
 		// Now need to figure out where "removed" coincidences occur.
 		size_t fInd = 0;
 		for (size_t cInd = 0; cInd < cts.size(); cInd++) { // Loop through indices
@@ -1250,13 +1302,14 @@ void writeFastBkgs(Run* mcs1, Run* mcs2, TH1D* profile) {
 				cts1 += 1;
 			}	
 		}
-	}
+	}*/
 	
 	// Now we can (1) add to our histogram and (2) write out our data
 	int nRuns = profile->GetBinContent(0); // save zeroth bin to get nruns 
 	profile->SetBinContent(0,nRuns+1);
-	if (removed.size() > 0) {
-		std::for_each(removed.begin(),removed.end(),[&profile](coinc_t x) {profile->Fill(x.realtime);});
+	if (ctsF.size() > 0) {
+		//std::for_each(removed.begin(),removed.end(),[&profile](coinc_t x) {profile->Fill(x.realtime);});
+		std::for_each(ctsF.begin(),ctsF.end(),[&profile](coinc_t x) {profile->Fill(x.realtime);});
 	}
 	FILE* outfile;
 	outfile = fopen("electricFilter.csv","a");
