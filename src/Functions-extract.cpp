@@ -152,7 +152,7 @@ int tagbitTagger(Run* mcs1, Run* mcs2, bool verbose) {
 	printf("Outputting data to tagTiming.csv!\n");
 
 	printf("Run: %d \nFill: %f \nClean: %f \nHold: %f \nnDips: %d \nH-GX Spacing: %f \nH-GX Pulses: %d \nBackground: %f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
-	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
+	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,cdOpen);
 	fclose(outfile);
 	return 0;
 }

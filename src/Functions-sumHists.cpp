@@ -46,7 +46,7 @@ void acSummer(Run* mcs1, Run* mcs2, TH1D* histSum) {
 void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum, double holdT) {// Sum over all the dips of the histogram (with bkg sub.)
 	
 	// hard coding slop of 2.0s
-	double slop = 2.0;
+	double slop = 9001.;
 	int run = mcs1->getRunNo();
 	double fillT;
 	if (run < 9600){
@@ -66,11 +66,13 @@ void totalSummer(Run* mcs1, Run* mcs2, TH1D* pmt1Sum, TH1D* pmt2Sum, TH1D* cSum,
 	double bkgStart = mcs1->getTagBitEvt(1<<3, *(dagSteps.end()-2), 1);
 	double bkgEnd = *(dagSteps.end()-1);
 	
+	//I've set this to accept whatever.
 	if (cntStart > holdT + slop || cntStart < holdT - slop) {
 		printf("Skipping Run -- not specified holding time (%d s)!!\n", (int)(holdT - fillT));
 		printf("   This is a %d s hold.\n", (int)(cntStart - fillT));
 		return;
 	}
+	slop = 2.0;
 	
 	if (bkgEnd < bkgStart) {
 		printf("Skipping due to background timing bug!\n");

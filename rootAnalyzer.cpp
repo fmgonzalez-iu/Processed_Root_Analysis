@@ -70,6 +70,7 @@ char* getFileName(int run_num) {
 	const char* fileLoc17 = std::getenv("RUNDIR_2017");
 	const char* fileLoc18 = std::getenv("RUNDIR_2018");
 	const char* fileLoc19 = std::getenv("RUNDIR_2019");
+	const char* fileLoc20 = std::getenv("RUNDIR_2020");
 	
 	char* fName = new char[256];
 	
@@ -81,10 +82,12 @@ char* getFileName(int run_num) {
 	//} else if ((9519 <= run_num) && (run_num < 14732)) {
 	} else if ((9927 <= run_num) && (run_num < 14732)) {
 		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc18);
-	} else if((14732 <= run_num) && (run_num < 17999)) {
+	} else if((14732 <= run_num) && (run_num < 16301)) {
 		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc19);
+	} else if((16301 <= run_num) && (run_num < 18999)) { // Not  sure where 2020 is
+		snprintf(fName, 256, "%s/processed_output_%%05d.root", fileLoc20);
 	} else {
-		printf("Warning! Run %05d is not from calendar year 2017 or 2018 !\n", run_num);
+		printf("Warning! Run %05d is not from calendar years 2017-2020!\n", run_num);
 		return fName;
 	}
 	
@@ -1229,11 +1232,13 @@ int main(int argc, const char** argv) {
 	char* fileLoc17 = std::getenv("RUNDIR_2017");
 	char* fileLoc18 = std::getenv("RUNDIR_2018");
 	char* fileLoc19 = std::getenv("RUNDIR_2019");
+	char* fileLoc20 = std::getevn("RUNDIR_2020");
 	
 	const char* fillLoc  = std::getenv("FILL_LOC");  // MAD fill fit time const.
 	const char* traceLoc = std::getenv("TRACE_LOC"); // Exp fill time const.
 	const char* saveLoc  = std::getenv("SAVE_LOC");  // Save location for ROOT drawings
 	
+	// TODO: make less verbose all the time
 	if ((fileLoc17) || (fileLoc18) || (fileLoc19)) {
 		if (fileLoc17) {
 			printf("Using 2017 run location %s\n", fileLoc17);
@@ -1244,8 +1249,11 @@ int main(int argc, const char** argv) {
 		if (fileLoc19) {
 			printf("Using 2019 run location %s\n", fileLoc19);
 		}
+		if (fileLoc20) {
+			printf("Using 2020 run location %s\n", fileLoc20);
+		}
 	} else {
-		printf("ERROR: Environmental variable RUNDIR not set! \n");
+		printf("ERROR: Environmental variables RUNDIR_XXXX not set! \n");
 		return 0;
 	}
 	 
@@ -1285,7 +1293,7 @@ int main(int argc, const char** argv) {
 		printf("Invalid functionality or setting! Check your table here...\n");
 		return 1;
 	}
-	printf("Using functionality %d,%d\n",functionality,setting);
+	//printf("Using functionality %d,%d\n",functionality,setting);
 	//------------------------------------------------------------------
 	// Create ROOT histograms (and other initializations) 
 	// for our different functions!
