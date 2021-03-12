@@ -211,10 +211,10 @@ void functionality_summing(std::vector<int> runList, params_in params, int setti
 		case 9: { nBins=3100; start=0; end=310;  } break; // Summing Peak 1
 		case 10:{ // Monitor Summer
 			nBins=2200; start=0; end=2200; } break; // Put this in for full run monitors
-			if (params.jobid >= 9000) { // This isn't the actual break, but for the memes.
-				nBins=580;  start=0; end=580; // For 20s holds
-			} else {  
-				nBins=730;  start=0; end=730; } } break; 
+			//if (params.jobid >= 9000) { // This isn't the actual break, but for the memes.
+			//	nBins=580;  start=0; end=580; // For 20s holds
+			//} else {  
+			//	nBins=730;  start=0; end=730; } } break; 
 		case 11:{ nBins=2200; start=0; end=2200; } break; // Full Run Summer (dagger)
 		case 12:{ nBins=2600; start=0; end=260; } break; // Technically coincidence structure.
 	}
@@ -1232,7 +1232,7 @@ int main(int argc, const char** argv) {
 	char* fileLoc17 = std::getenv("RUNDIR_2017");
 	char* fileLoc18 = std::getenv("RUNDIR_2018");
 	char* fileLoc19 = std::getenv("RUNDIR_2019");
-	char* fileLoc20 = std::getevn("RUNDIR_2020");
+	char* fileLoc20 = std::getenv("RUNDIR_2020");
 	
 	const char* fillLoc  = std::getenv("FILL_LOC");  // MAD fill fit time const.
 	const char* traceLoc = std::getenv("TRACE_LOC"); // Exp fill time const.

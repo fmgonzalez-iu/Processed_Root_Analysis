@@ -134,9 +134,12 @@ int tagbitTagger(Run* mcs1, Run* mcs2, bool verbose) {
 	if (dips != 3) {
 		printf("Not normal production unload! Might be 1-dip or 9-dip (or a bug...)!\n");
 	}
+	if (dips < 0) {
+		return -1;
+	}
 
 	double cleanT = acUp - gvClose;
-	if (cleanT <= 0) {
+	if ((cleanT <= 0) || (acUp < 0) || (acUp > acDown)) {
 		cleanT = 50.0; // Error, so defaulting to 50
 	}
 	double holdT  = dagMoves[1]-(gvClose+cleanT);
@@ -152,7 +155,7 @@ int tagbitTagger(Run* mcs1, Run* mcs2, bool verbose) {
 	printf("Outputting data to tagTiming.csv!\n");
 
 	printf("Run: %d \nFill: %f \nClean: %f \nHold: %f \nnDips: %d \nH-GX Spacing: %f \nH-GX Pulses: %d \nBackground: %f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,bkgT);
-	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,cdOpen);
+	fprintf(outfile,"%d,%f,%f,%f,%d,%f,%d,%f,%f\n",runNo,gvClose,cleanT,holdT,dips,fillSpacing,fillPulses,dagMoves[1],tdOpen);
 	fclose(outfile);
 	return 0;
 }
